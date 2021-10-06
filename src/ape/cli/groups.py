@@ -101,7 +101,8 @@ class ApeCLI(click.MultiCommand):
                 return self.commands[name]()
             except Exception as err:
                 # NOTE: don't return anything so Click displays proper error
-                logger.warning(f"Unable to load CLI endpoint for plugin 'ape_{name}'.\n\t{err}")
+                err_
+                logger.warning(f"Unable to load CLI endpoint for plugin 'ape_{name}'.\n\t{type(err).__name__}: {err}")
 
 
 def display_config(ctx, param, value):
