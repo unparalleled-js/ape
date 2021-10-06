@@ -1,29 +1,11 @@
-from typing import Optional, Type
-
 import click
 
-from ape import accounts, networks
-from ape.api.accounts import AccountAPI
-from ape.cli.choices import Alias
-from ape.cli.utils import Abort
-from ape.exceptions import AliasAlreadyInUseError
+from ape import networks
+from ape.cli.choices import NetworkChoice
+from ape.cli.utils import ApeCliContext
 from ape.logging import LogLevel, logger
 
-
-class ApeCliContextObject:
-    """A class that can be auto-imported into a plugin ``click.command()``
-    via ``@ape_cli_context()``. It can help do common CLI tasks such as log
-    messages to the user or abort execution."""
-
-    def __init__(self):
-        self.logger = logger
-
-    @staticmethod
-    def abort(msg: str, base_error: Exception = None):
-        if base_error:
-            logger.error(msg)
-            raise Abort(msg) from base_error
-        raise Abort(msg)
+option = click.option
 
 
 def verbosity_option(cli_logger):
@@ -59,20 +41,10 @@ def verbosity_option(cli_logger):
 def ape_cli_context():
     def decorator(f):
         f = verbosity_option(logger)(f)
-        f = click.make_pass_decorator(ApeCliContextObject, ensure=True)(f)
+        f = click.make_pass_decorator(ApeCliContext, ensure=True)(f)
         return f
 
     return decorator
-
-
-class NetworkChoice(click.Choice):
-    """Wraps ``click.Choice`` to provide network choice defaults for the active project."""
-
-    def __init__(self, case_sensitive=True):
-        super().__init__(list(networks.network_choices), case_sensitive)
-
-    def get_metavar(self, param):
-        return "[ecosystem-name][:[network-name][:[provider-name]]]"
 
 
 network_option = click.option(
@@ -93,21 +65,6 @@ def verbose_option(help=""):
         default=False,
         help=help,
     )
-
-
-def _require_non_existing_alias(arg):
-    if arg in accounts.aliases:
-        raise AliasAlreadyInUseError(arg)
-    return arg
-
-
-def existing_alias_argument(account_type: Optional[Type[AccountAPI]] = None):
-    return click.argument("alias", type=Alias(account_type=account_type))
-
-
-non_existing_alias_argument = click.argument(
-    "alias", callback=lambda ctx, param, arg: _require_non_existing_alias(arg)
-)
 
 
 def skip_confirmation_option(help=""):

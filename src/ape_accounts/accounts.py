@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 from typing import Iterator, Optional
 
-import click
 from eth_account import Account as EthAccount  # type: ignore
 
 from ape.api import AccountAPI, AccountContainerAPI, TransactionAPI
+from ape.cli import get_cli_context
 from ape.convert import to_address
 from ape.exceptions import AccountsError
 from ape.types import AddressType, MessageSignature, SignableMessage, TransactionSignature
@@ -44,6 +44,7 @@ class KeyfileAccount(AccountAPI):
 
     def __post_init__(self):
         self.locked = True
+        self._cli_ctx = get_cli_context()
         self.__cached_key = None
 
     @property
@@ -62,12 +63,12 @@ class KeyfileAccount(AccountAPI):
     def __key(self) -> EthAccount:
         if self.__cached_key is not None:
             if not self.locked:
-                click.echo(f"Using cached key for '{self.alias}'")
+                self._cli_ctx.echo(f"Using cached key for '{self.alias}'")
                 return self.__cached_key
             else:
                 self.__cached_key = None
 
-        passphrase = click.prompt(
+        passphrase = self._cli_ctx.prompt(
             f"Enter Passphrase to unlock '{self.alias}'",
             hide_input=True,
             default="",  # Just in case there's no passphrase
@@ -79,14 +80,14 @@ class KeyfileAccount(AccountAPI):
         except ValueError as err:
             raise InvalidPasswordError() from err
 
-        if click.confirm(f"Leave '{self.alias}' unlocked?"):
+        if self._cli_ctx.confirm(f"Leave '{self.alias}' unlocked?"):
             self.locked = False
             self.__cached_key = key
 
         return key
 
     def unlock(self):
-        passphrase = click.prompt(
+        passphrase = self._cli_ctx.prompt(
             f"Enter Passphrase to permanently unlock '{self.alias}'",
             hide_input=True,
         )
@@ -104,7 +105,7 @@ class KeyfileAccount(AccountAPI):
         self.locked = True  # force entering passphrase to get key
         key = self.__key
 
-        passphrase = click.prompt(
+        passphrase = self._cli_ctx.prompt(
             "Create New Passphrase",
             hide_input=True,
             confirmation_prompt=True,
@@ -113,7 +114,7 @@ class KeyfileAccount(AccountAPI):
         self._keyfile.write_text(json.dumps(EthAccount.encrypt(key, passphrase)))
 
     def delete(self):
-        passphrase = click.prompt(
+        passphrase = self._cli_ctx.prompt(
             f"Enter Passphrase to delete '{self.alias}'",
             hide_input=True,
             default="",  # Just in case there's no passphrase
@@ -124,14 +125,14 @@ class KeyfileAccount(AccountAPI):
         self._keyfile.unlink()
 
     def sign_message(self, msg: SignableMessage) -> Optional[MessageSignature]:
-        if self.locked and not click.confirm(f"{msg}\n\nSign: "):
+        if self.locked and not self._cli_ctx.confirm(f"{msg}\n\nSign: "):
             return None
 
         signed_msg = EthAccount.sign_message(msg, self.__key)
         return MessageSignature(v=signed_msg.v, r=signed_msg.r, s=signed_msg.s)  # type: ignore
 
     def sign_transaction(self, txn: TransactionAPI) -> Optional[TransactionSignature]:
-        if self.locked and not click.confirm(f"{txn}\n\nSign: "):
+        if self.locked and not self._cli_ctx.confirm(f"{txn}\n\nSign: "):
             return None
 
         signed_txn = EthAccount.sign_transaction(txn.as_dict(), self.__key)

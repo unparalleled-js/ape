@@ -10,12 +10,12 @@ from ape_plugins.utils import (
 )
 
 from ape import config
-from ape.cli import ape_cli_context, skip_confirmation_option
+from ape.cli import ape_cli_context, ape_group, skip_confirmation_option
 from ape.plugins import clean_plugin_name, plugin_manager
 from ape.utils import get_package_version
 
 
-@click.group(short_help="Manage ape plugins")
+@ape_group(short_help="Manage ape plugins")
 def cli():
     """
     Command-line helper for managing installed plugins.
@@ -90,8 +90,8 @@ def add(cli_ctx, plugin, version, skip_confirmation):
 
 
 @cli.command(short_help="Install all plugins in the local config file")
-@ape_cli_context()
 @skip_confirmation_option("Don't ask for confirmation to install the plugins")
+@ape_cli_context()
 def install(cli_ctx, skip_confirmation):
     plugins = config.get_config("plugins") or []
     for plugin in plugins:

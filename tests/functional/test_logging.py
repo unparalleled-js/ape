@@ -1,8 +1,7 @@
-import click
 import pytest
 from click.testing import CliRunner
 
-from ape.cli import ape_cli_context
+from ape.cli import ape_group
 
 
 @pytest.fixture
@@ -10,14 +9,13 @@ def simple_runner():
     return CliRunner()
 
 
-@click.group()
+@ape_group()
 def group_for_testing():
     pass
 
 
 def test_info(simple_runner):
-    @group_for_testing.command()
-    @ape_cli_context()
+    @group_for_testing.command_with_cli_context()
     def cmd(cli_ctx):
         cli_ctx.logger.info("this is a test")
 
@@ -27,8 +25,7 @@ def test_info(simple_runner):
 
 
 def test_info_level_higher(simple_runner):
-    @group_for_testing.command()
-    @ape_cli_context()
+    @group_for_testing.command_with_cli_context()
     def cmd(cli_ctx):
         cli_ctx.logger.info("this is a test")
 
@@ -40,8 +37,7 @@ def test_info_level_higher(simple_runner):
 
 
 def test_warning(simple_runner):
-    @group_for_testing.command()
-    @ape_cli_context()
+    @group_for_testing.command_with_cli_context()
     def cmd(cli_ctx):
         cli_ctx.logger.warning("this is a test")
 
@@ -51,8 +47,7 @@ def test_warning(simple_runner):
 
 
 def test_warning_level_higher(simple_runner):
-    @group_for_testing.command()
-    @ape_cli_context()
+    @group_for_testing.command_with_cli_context()
     def cmd(cli_ctx):
         cli_ctx.logger.warning("this is a test")
 
@@ -65,8 +60,7 @@ def test_success(simple_runner):
     # Since the log level defaults to INFO,
     # this test also ensures that we get SUCCESS logs
     # without having to specify verbosity
-    @group_for_testing.command()
-    @ape_cli_context()
+    @group_for_testing.command_with_cli_context()
     def cmd(cli_ctx):
         cli_ctx.logger.success("this is a test")
 
@@ -76,8 +70,7 @@ def test_success(simple_runner):
 
 
 def test_success_level_higher(simple_runner):
-    @group_for_testing.command()
-    @ape_cli_context()
+    @group_for_testing.command_with_cli_context()
     def cmd(cli_ctx):
         cli_ctx.logger.success("this is a test")
 
