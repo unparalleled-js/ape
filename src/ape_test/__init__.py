@@ -1,4 +1,5 @@
 from ape import plugins
+from .accounts import TestAccountContainer, TestAccount
 
 from .providers import LocalNetwork
 
@@ -6,3 +7,8 @@ from .providers import LocalNetwork
 @plugins.register(plugins.ProviderPlugin)
 def providers():
     yield "ethereum", "development", LocalNetwork
+
+
+@plugins.register(plugins.AccountPlugin)
+def account_types():
+    return TestAccountContainer, TestAccount
