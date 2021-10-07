@@ -1,14 +1,12 @@
 import sys
 from pathlib import Path
 
+import pytest
 from _pytest.config import Config
-
 from ape_test.fixtures import PytestApeFixtures
-from ape_test.managers import (
-    PytestApeRunner,
-    PytestApeXdistManager,
-    PytestApeXdistRunner,
-)
+from ape_test.managers import PytestApeRunner, PytestApeXdistManager, PytestApeXdistRunner
+
+from ape import project
 
 
 # set commandline options
@@ -68,3 +66,16 @@ def pytest_configure(config):
     if not has_xdist or not config.getoption("numprocesses"):
         fixtures = PytestApeFixtures()  # NOTE: contains all the registered fixtures
         config.pluginmanager.register(fixtures, "ape-fixtures")
+
+
+def pytest_load_initial_conftests(early_config):
+    cap_sys = early_config.pluginmanager.get_plugin("capturemanager")
+    if not project.sources_missing:
+        # suspend stdout capture to display compilation data
+        cap_sys.suspend()
+        try:
+            project.load_contracts()
+        except Exception:
+            raise pytest.UsageError("Unable to load project")
+        finally:
+            cap_sys.resume()
