@@ -58,7 +58,7 @@ def pytest_configure(config):
 
     # Inject the runner plugin (must happen before fixtures registration)
     # NOTE: the runner contains the injected local project
-    session = plugin_cls()
+    session = plugin_cls(config)
     config.pluginmanager.register(session, "ape-test")
 
     # Only inject fixtures if we're not configuring the x-dist master runner
@@ -69,6 +69,9 @@ def pytest_configure(config):
 
 
 def pytest_load_initial_conftests(early_config):
+    """
+    Compile contracts before loading conftests.
+    """
     cap_sys = early_config.pluginmanager.get_plugin("capturemanager")
     if not project.sources_missing:
         # suspend stdout capture to display compilation data
