@@ -3,7 +3,6 @@ from setuptools import find_packages, setup  # type: ignore
 
 extras_require = {
     "test": [  # `test` GitHub Action jobs uses this
-        "pytest>=6.0,<7.0",  # Core testing package
         "pytest-xdist",  # multi-process runner
         "pytest-cov",  # Coverage analyzer plugin
         "pytest-mock",  # For creating mocks
@@ -73,6 +72,7 @@ setup(
         "importlib-metadata",
         "singledispatchmethod ; python_version<'3.8'",
         "IPython>=7.25",
+        "pytest>=6.0,<7.0",
         "web3[tester]>=5.18.0,<6.0.0",
     ],
     entry_points={
@@ -84,6 +84,7 @@ setup(
             "ape_plugins=ape_plugins._cli:cli",
             "ape_run=ape_run._cli:cli",
             "ape_networks=ape_networks._cli:cli",
+            "ape_test=ape_test._cli:cli",
         ],
     },
     python_requires=">=3.7,<3.10",
