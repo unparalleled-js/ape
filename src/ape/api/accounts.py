@@ -152,7 +152,7 @@ class AccountAPI(AddressAPI):
                 f"Gas estimation failed: '{err}'. This transaction will likely revert. "
                 "If you wish to broadcast, you must set the gas limit manually."
             )
-            raise TransactionError(message)
+            raise TransactionError(message) from err
 
 
 @abstractdataclass
