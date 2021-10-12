@@ -122,6 +122,6 @@ class EthereumProvider(ProviderAPI):
 
     def get_events(self, **filter_params) -> Iterator[dict]:
         """
-        Returns an array of all logs matching a given filter object.
+        Returns an array of all logs matching a given set of filter parameters.
         """
         return iter(self._web3.eth.get_logs(filter_params))  # type: ignore
