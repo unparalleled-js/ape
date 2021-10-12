@@ -10,11 +10,11 @@ from ape.types import (
 )
 from ape.utils import cached_property
 
-from ..exceptions import AccountsError, AliasAlreadyInUseError
+from ..exceptions import AccountsError, AliasAlreadyInUseError, TransactionError
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
-from .providers import ReceiptAPI, TransactionAPI
+from .providers import ReceiptAPI, TransactionAPI, TransactionStatusEnum
 
 
 # NOTE: AddressAPI is a dataclass already
@@ -64,22 +64,38 @@ class AccountAPI(AddressAPI):
 
         # NOTE: Allow overriding gas limit
         if txn.gas_limit is None:
-            txn.gas_limit = 0  # NOTE: Need a starting estimate
-            txn.gas_limit = self.provider.estimate_gas_cost(txn)
+            txn.gas_limit = self._estimate_gas(txn)
         # else: assume user specified the correct amount or txn will fail and waste gas
 
         if send_everything:
             txn.value = self.balance - txn.gas_limit * txn.gas_price
 
-        if txn.gas_limit * txn.gas_price + txn.value > self.balance:
-            raise AccountsError("Transfer value meets or exceeds account balance")
+        if txn.transfer_value > self.balance:
+            raise AccountsError(
+                f"Transfer value meets or exceeds account balance "
+                f"(transfer_value={txn.transfer_value}, balance={self.balance})"
+            )
 
         txn.signature = self.sign_transaction(txn)
-
         if not txn.signature:
             raise AccountsError("The transaction was not signed")
 
-        return self.provider.send_transaction(txn)
+        return self._send_transaction(txn)
+
+    def _send_transaction(self, txn: TransactionAPI) -> ReceiptAPI:
+        try:
+            receipt = self.provider.send_transaction(txn)
+
+            if receipt.status == TransactionStatusEnum.failing:
+                message = "Transaction failing"
+                if receipt.gas_used == txn.gas_limit:
+                    message += ": Out of gas"
+                raise TransactionError(message)
+
+            return receipt
+
+        except ValueError as err:
+            raise TransactionError(str(err)) from err
 
     @cached_property
     def _convert(self) -> Callable:
@@ -127,6 +143,16 @@ class AccountAPI(AddressAPI):
             _address=receipt.contract_address,
             _contract_type=contract_type,
         )
+
+    def _estimate_gas(self, txn: TransactionAPI) -> int:
+        try:
+            return self.provider.estimate_gas_cost(txn)
+        except ValueError as err:
+            message = (
+                f"Gas estimation failed: '{err}'. This transaction will likely revert. "
+                "If you wish to broadcast, you must set the gas limit manually."
+            )
+            raise TransactionError(message) from err
 
 
 @abstractdataclass
