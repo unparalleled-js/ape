@@ -29,7 +29,7 @@ repos:
     rev: v0.910-1
     hooks:
     -   id: mypy
-        additional_dependencies: [Click>=8.0.0, types-PyYAML, types-requests]
+        additional_dependencies: [types-PyYAML, types-requests]
 
 
 default_language_version:
