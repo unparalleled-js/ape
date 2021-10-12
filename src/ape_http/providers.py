@@ -118,6 +118,7 @@ class EthereumProvider(ProviderAPI):
         for signed transactions.
         """
         txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
+
         return self.get_transaction(txn_hash.hex())
 
     def get_events(self, **filter_params) -> Iterator[dict]:
