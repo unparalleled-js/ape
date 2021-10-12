@@ -1,6 +1,7 @@
 from ape import plugins
 
 from .accounts import HardhatAccount, HardhatAccountContainer
+from .contextmanagers import RevertsContextManager as reverts
 from .providers import LocalNetwork
 
 
@@ -13,3 +14,6 @@ def account_types():
 @plugins.register(plugins.ProviderPlugin)
 def providers():
     yield "ethereum", "development", LocalNetwork
+
+
+__all__ = ["reverts"]

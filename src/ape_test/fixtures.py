@@ -11,6 +11,10 @@ from ape_accounts import KeyfileAccount
 
 class PytestApeFixtures:
     @pytest.fixture
+    def zero_address(self) -> str:
+        return "0x0000000000000000000000000000000000000000"
+
+    @pytest.fixture
     def accounts(self, provider) -> List[AccountAPI]:
         """
         Returns test accounts based on the active provider.
