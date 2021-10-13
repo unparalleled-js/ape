@@ -104,6 +104,16 @@ class AccountAPI(AddressAPI):
 
         return convert
 
+    def _estimate_gas(self, txn: TransactionAPI) -> int:
+        try:
+            return self.provider.estimate_gas_cost(txn)
+        except ValueError as err:
+            message = (
+                f"Gas estimation failed: '{err}'. This transaction will likely revert. "
+                "If you wish to broadcast, you must set the gas limit manually."
+            )
+            raise TransactionError(message) from err
+
     def transfer(
         self,
         account: Union[str, AddressType, "AddressAPI"],
@@ -143,16 +153,6 @@ class AccountAPI(AddressAPI):
             _address=receipt.contract_address,
             _contract_type=contract_type,
         )
-
-    def _estimate_gas(self, txn: TransactionAPI) -> int:
-        try:
-            return self.provider.estimate_gas_cost(txn)
-        except ValueError as err:
-            message = (
-                f"Gas estimation failed: '{err}'. This transaction will likely revert. "
-                "If you wish to broadcast, you must set the gas limit manually."
-            )
-            raise TransactionError(message) from err
 
 
 @abstractdataclass

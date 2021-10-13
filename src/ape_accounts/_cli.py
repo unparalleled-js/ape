@@ -5,13 +5,7 @@ from eth_account import Account as EthAccount  # type: ignore
 from eth_utils import to_bytes
 
 from ape import accounts
-from ape.cli import (
-    NetworkBoundCommand,
-    ape_cli_context,
-    existing_alias_argument,
-    network_option,
-    non_existing_alias_argument,
-)
+from ape.cli import ape_cli_context, existing_alias_argument, non_existing_alias_argument
 from ape_accounts import KeyfileAccount
 
 # NOTE: Must used the instantiated version of `AccountsContainer` in `accounts`
@@ -108,12 +102,3 @@ def delete(cli_ctx, alias):
     account = accounts.load(alias)
     account.delete()
     cli_ctx.logger.success(f"Account '{alias}' has been deleted")
-
-
-@cli.command(short_help="Show the balance of an account (in Wei)", cls=NetworkBoundCommand)
-@existing_alias_argument(account_type=KeyfileAccount)
-@network_option
-def show_balance(alias, network):
-    account = accounts.load(alias)
-    balance = account.provider.get_balance(account.address)
-    click.echo(balance)
