@@ -4,7 +4,7 @@ from web3 import HTTPProvider, Web3
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 from web3.middleware import geth_poa_middleware
 
-from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI, TransactionStatusEnum
+from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI
 from ape.api.config import ConfigItem
 from ape.exceptions import ProviderError, TransactionError
 
@@ -119,16 +119,7 @@ class EthereumProvider(ProviderAPI):
         """
         try:
             txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
-            receipt = self.get_transaction(txn_hash.hex())
-
-            if receipt.status is TransactionStatusEnum.FAILING:
-                message = "Transaction failing"
-                if receipt.gas_used == txn.gas_limit:
-                    message += ": Out of gas"
-                raise TransactionError(message)
-
-            return receipt
-
+            return self.get_transaction(txn_hash.hex())
         except ValueError as err:
             raise TransactionError(str(err)) from err
 
