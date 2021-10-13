@@ -58,7 +58,7 @@ class TestAccountAPI:
         mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
 
         # Transaction costs are greater than balance
-        mock_transaction.transfer_value = 1000000
+        mock_transaction.total_transfer_value = 1000000
         mock_provider_api.get_balance.return_value = 0
 
         with pytest.raises(AccountsError) as err:
@@ -74,7 +74,7 @@ class TestAccountAPI:
     ):
         mock_transaction = mocker.MagicMock(spec=TransactionAPI)
         mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.transfer_value = mock_provider_api.get_balance.return_value = 1000000
+        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
 
         with pytest.raises(AccountsError) as err:
             test_account_api_no_sign.call(mock_transaction)
@@ -86,7 +86,7 @@ class TestAccountAPI:
     ):
         mock_transaction = mocker.MagicMock(spec=TransactionAPI)
         mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.transfer_value = mock_provider_api.get_balance.return_value = 1000000
+        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
         mock_transaction.signature.return_value = "test-signature"
 
         web3_error_text = (
@@ -105,7 +105,7 @@ class TestAccountAPI:
     ):
         mock_transaction = mocker.MagicMock(spec=TransactionAPI)
         mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.transfer_value = mock_provider_api.get_balance.return_value = 1000000
+        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
         mock_transaction.signature.return_value = "test-signature"
 
         mock_provider_api.send_transaction.return_value = mock_failing_transaction_receipt
@@ -120,7 +120,7 @@ class TestAccountAPI:
     ):
         mock_transaction = mocker.MagicMock(spec=TransactionAPI)
         mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.transfer_value = mock_provider_api.get_balance.return_value = 1000000
+        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
         mock_transaction.signature.return_value = "test-signature"
 
         # Out of gas - used whole limit
@@ -140,7 +140,7 @@ class TestAccountAPI:
         mock_transaction = mocker.MagicMock(spec=TransactionAPI)
         mock_transaction.gas_limit = None  # Causes estimate_gas_cost to get called
         mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.transfer_value = mock_provider_api.get_balance.return_value = 1000000
+        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
         mock_transaction.signature.return_value = "test-signature"
         test_account_api_can_sign.call(mock_transaction)
         mock_provider_api.estimate_gas_cost.assert_called_once_with(mock_transaction)

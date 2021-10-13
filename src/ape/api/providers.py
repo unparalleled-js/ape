@@ -32,7 +32,12 @@ class TransactionAPI:
             raise ProviderError("Transaction is not valid")
 
     @property
-    def transfer_value(self) -> int:
+    def total_transfer_value(self) -> int:
+        """
+        The total amount of WEI that a transaction could use.
+        Useful for determining if an account balance can afford
+        to submit the transaction.
+        """
         return (self.gas_limit or 0) * (self.gas_price or 0) + self.value
 
     @property

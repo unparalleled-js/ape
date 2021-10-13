@@ -70,10 +70,10 @@ class AccountAPI(AddressAPI):
         if send_everything:
             txn.value = self.balance - txn.gas_limit * txn.gas_price
 
-        if txn.transfer_value > self.balance:
+        if txn.total_transfer_value > self.balance:
             raise AccountsError(
                 f"Transfer value meets or exceeds account balance "
-                f"(transfer_value={txn.transfer_value}, balance={self.balance})"
+                f"(transfer_value={txn.total_transfer_value}, balance={self.balance})"
             )
 
         txn.signature = self.sign_transaction(txn)
