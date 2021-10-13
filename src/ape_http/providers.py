@@ -4,9 +4,9 @@ from web3 import HTTPProvider, Web3
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 from web3.middleware import geth_poa_middleware
 
-from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI
+from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI, TransactionStatusEnum
 from ape.api.config import ConfigItem
-from ape.exceptions import ProviderError
+from ape.exceptions import ProviderError, TransactionError
 
 DEFAULT_SETTINGS = {"uri": "http://localhost:8545"}
 
@@ -117,8 +117,20 @@ class EthereumProvider(ProviderAPI):
         Creates a new message call transaction or a contract creation
         for signed transactions.
         """
-        txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
-        return self.get_transaction(txn_hash.hex())
+        try:
+            txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
+            receipt = self.get_transaction(txn_hash.hex())
+
+            if receipt.status is TransactionStatusEnum.FAILING:
+                message = "Transaction failing"
+                if receipt.gas_used == txn.gas_limit:
+                    message += ": Out of gas"
+                raise TransactionError(message)
+
+            return receipt
+
+        except ValueError as err:
+            raise TransactionError(str(err)) from err
 
     def get_events(self, **filter_params) -> Iterator[dict]:
         """

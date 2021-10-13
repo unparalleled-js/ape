@@ -14,7 +14,7 @@ from ..exceptions import AccountsError, AliasAlreadyInUseError, TransactionError
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
-from .providers import ReceiptAPI, TransactionAPI, TransactionStatusEnum
+from .providers import ReceiptAPI, TransactionAPI
 
 
 # NOTE: AddressAPI is a dataclass already
@@ -80,22 +80,7 @@ class AccountAPI(AddressAPI):
         if not txn.signature:
             raise AccountsError("The transaction was not signed")
 
-        return self._send_transaction(txn)
-
-    def _send_transaction(self, txn: TransactionAPI) -> ReceiptAPI:
-        try:
-            receipt = self.provider.send_transaction(txn)
-
-            if receipt.status is TransactionStatusEnum.FAILING:
-                message = "Transaction failing"
-                if receipt.gas_used == txn.gas_limit:
-                    message += ": Out of gas"
-                raise TransactionError(message)
-
-            return receipt
-
-        except ValueError as err:
-            raise TransactionError(str(err)) from err
+        return self.provider.send_transaction(txn)
 
     @cached_property
     def _convert(self) -> Callable:
