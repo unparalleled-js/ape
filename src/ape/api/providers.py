@@ -72,8 +72,8 @@ class TransactionAPI:
 
 
 class TransactionStatusEnum(IntEnum):
-    failing = 0
-    no_error = 1
+    FAILING = 0
+    NO_ERROR = 1
 
 
 @abstractdataclass

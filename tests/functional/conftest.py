@@ -25,6 +25,6 @@ def mock_network_api(mocker):
 @pytest.fixture
 def mock_failing_transaction_receipt(mocker):
     mock = mocker.MagicMock(spec=ReceiptAPI)
-    mock.status = TransactionStatusEnum.failing
+    mock.status = TransactionStatusEnum.FAILING
     mock.gas_used = 0
     return mock
