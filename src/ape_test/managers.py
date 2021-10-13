@@ -15,7 +15,7 @@ class PytestApeRunner:
         * Removes `PytestAssertRewriteWarning` warnings from the terminalreporter.
           This prevents warnings that "the `brownie` library was already imported and
           so related assertions cannot be rewritten". The warning is not relevant
-          for end users who are performing tests with brownie, not on brownie,
+          for end users who are performing tests with brownie, not on ape,
           so we suppress it to avoid confusion.
 
         Removal of pytest warnings must be handled in this hook because session
