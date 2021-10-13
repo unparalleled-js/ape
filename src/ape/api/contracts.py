@@ -218,7 +218,7 @@ class ContractInstance(AddressAPI):
 
             except Exception as e:
                 # NOTE: Just a hack, because `__getattr__` *must* raise `AttributeError`
-                raise AttributeError from e
+                raise AttributeError(str(e)) from e
 
         # Reverse search for the proper handler for this ABI name, if one exists
         for abi_type in handlers:
