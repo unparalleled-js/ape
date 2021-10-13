@@ -1,18 +1,11 @@
-import re
-from typing import Optional, Pattern, Type
+from typing import Optional, Type
 
 from ape.exceptions import TransactionError
 
 
 class RevertsContextManager:
-    def __init__(self, message: Optional[str] = None, pattern: Optional[Pattern] = None):
-
-        # Verify regex pattern
-        if pattern:
-            re.compile(pattern)
-
-        self.message = message
-        self.pattern = pattern
+    def __init__(self, expected_message: Optional[str] = None):
+        self.expected_message = expected_message
 
     def __enter__(self):
         pass
@@ -24,13 +17,9 @@ class RevertsContextManager:
         if exc_type is not TransactionError:
             raise
 
-        if self.message or self.pattern:
-            actual = str(exc_value)
-            if (
-                actual is None
-                or (self.pattern and not re.fullmatch(self.pattern, actual))
-                or (self.message and self.message != actual)
-            ):
+        if self.expected_message is not None:
+            actual = str(exc_value) or ""
+            if self.expected_message not in actual:
                 raise AssertionError(f"Unexpected revert string '{actual}'.") from None
 
         return True
