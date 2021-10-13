@@ -1,59 +1,87 @@
-import pytest
+from pathlib import Path
 
-from ape.api import TransactionAPI
+import pytest
+from ape_http import EthereumProvider
+
+from ape.api import ReceiptAPI, TransactionStatusEnum
 from ape.exceptions import TransactionError
 
 
-class TestEthereumProvider:
-    def test_transaction_web3_value_error_raises_transaction_error(
-        self, mocker, mock_provider_api, test_account_api_can_sign
-    ):
-        mock_transaction = mocker.MagicMock(spec=TransactionAPI)
-        mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
-        mock_transaction.signature.return_value = "test-signature"
+def _create_mock_receipt_class(status, gas_used):
+    class MockReceipt(ReceiptAPI):
+        @classmethod
+        def decode(cls, data: dict) -> "ReceiptAPI":
+            return MockReceipt(
+                txn_hash="test-hash",  # type: ignore
+                status=status,  # type: ignore
+                gas_used=gas_used,  # type: ignore
+                gas_price="60000000000",  # type: ignore
+                block_number=0,  # type: ignore
+            )
 
+    return MockReceipt
+
+
+class TestEthereumProvider:
+    def test_send_when_web3_error_raises_transaction_error(
+        self, mock_web3, mock_network_api, mock_config_item, mock_transaction
+    ):
+        provider = EthereumProvider(
+            name="test",
+            network=mock_network_api,
+            config=mock_config_item,
+            provider_settings={},
+            data_folder=Path("."),
+            request_header="",
+        )
+        provider._web3 = mock_web3
+        mock_receipt_class = _create_mock_receipt_class(TransactionStatusEnum.NO_ERROR, 0)
+        mock_network_api.ecosystem.receipt_class = mock_receipt_class
         web3_error_text = (
             "{'code': -32000, 'message': 'Transaction gas limit is "
             "100000000 and exceeds block gas limit of 30000000'}"
         )
-        mock_provider_api.send_transaction.side_effect = ValueError(web3_error_text)
-
+        mock_web3.eth.wait_for_transaction_receipt.side_effect = ValueError(web3_error_text)
         with pytest.raises(TransactionError) as err:
-            test_account_api_can_sign.call(mock_transaction)
+            provider.send_transaction(mock_transaction)
 
         assert web3_error_text in str(err.value)
 
-    def test_transaction_failing_raises_transaction_error(
-        self, mocker, mock_provider_api, test_account_api_can_sign, mock_failing_transaction_receipt
+    def test_send_when_transaction_failing_raises_transaction_error(
+        self, mock_web3, mock_network_api, mock_config_item, mock_transaction
     ):
-        mock_transaction = mocker.MagicMock(spec=TransactionAPI)
-        mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
-        mock_transaction.signature.return_value = "test-signature"
-
-        mock_provider_api.send_transaction.return_value = mock_failing_transaction_receipt
-
+        provider = EthereumProvider(
+            name="test",
+            network=mock_network_api,
+            config=mock_config_item,
+            provider_settings={},
+            data_folder=Path("."),
+            request_header="",
+        )
+        provider._web3 = mock_web3
+        mock_receipt_class = _create_mock_receipt_class(TransactionStatusEnum.FAILING, 0)
+        mock_network_api.ecosystem.receipt_class = mock_receipt_class
         with pytest.raises(TransactionError) as err:
-            test_account_api_can_sign.call(mock_transaction)
+            provider.send_transaction(mock_transaction)
 
         assert str(err.value) == "Transaction failing"
 
-    def test_transaction_failing_out_of_gas_raises_transaction_error(
-        self, mocker, mock_provider_api, test_account_api_can_sign, mock_failing_transaction_receipt
+    def test_send_when_transaction_failing_and_out_of_gas_raises_transaction_error(
+        self, mock_web3, mock_network_api, mock_config_item, mock_transaction
     ):
-        mock_transaction = mocker.MagicMock(spec=TransactionAPI)
-        mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
-        mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
-        mock_transaction.signature.return_value = "test-signature"
-
-        # Out of gas - used whole limit
-        mock_transaction.gas_limit = 1000000
-        mock_failing_transaction_receipt.gas_used = 1000000
-
-        mock_provider_api.send_transaction.return_value = mock_failing_transaction_receipt
-
+        provider = EthereumProvider(
+            name="test",
+            network=mock_network_api,
+            config=mock_config_item,
+            provider_settings={},
+            data_folder=Path("."),
+            request_header="",
+        )
+        provider._web3 = mock_web3
+        mock_transaction.gas_limit = 25000
+        mock_receipt_class = _create_mock_receipt_class(TransactionStatusEnum.FAILING, 25000)
+        mock_network_api.ecosystem.receipt_class = mock_receipt_class
         with pytest.raises(TransactionError) as err:
-            test_account_api_can_sign.call(mock_transaction)
+            provider.send_transaction(mock_transaction)
 
         assert str(err.value) == "Transaction failing: Out of gas"
