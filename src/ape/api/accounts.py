@@ -86,7 +86,7 @@ class AccountAPI(AddressAPI):
         try:
             receipt = self.provider.send_transaction(txn)
 
-            if receipt.status == TransactionStatusEnum.FAILING:
+            if receipt.status is TransactionStatusEnum.FAILING:
                 message = "Transaction failing"
                 if receipt.gas_used == txn.gas_limit:
                     message += ": Out of gas"
