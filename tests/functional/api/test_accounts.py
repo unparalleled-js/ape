@@ -134,7 +134,7 @@ class TestAccountAPI:
 
         assert str(err.value) == "Transaction failing: Out of gas"
 
-    def test_transaction_when_no_gas_limit_calles_estimate_gas_cost(
+    def test_transaction_when_no_gas_limit_calls_estimate_gas_cost(
         self, mocker, mock_provider_api, test_account_api_can_sign
     ):
         mock_transaction = mocker.MagicMock(spec=TransactionAPI)
