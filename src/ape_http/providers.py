@@ -1,5 +1,3 @@
-import json
-import re
 from typing import Iterator
 
 from web3 import HTTPProvider, Web3
@@ -8,7 +6,7 @@ from web3.middleware import geth_poa_middleware
 
 from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI
 from ape.api.config import ConfigItem
-from ape.exceptions import OutOfGasError, ProviderError, TransactionError, VirtualMachineError
+from ape.exceptions import ProviderError
 
 DEFAULT_SETTINGS = {"uri": "http://localhost:8545"}
 
@@ -26,54 +24,6 @@ class EthereumNetworkConfig(ConfigItem):
 
 class NetworkConfig(ConfigItem):
     ethereum: EthereumNetworkConfig = EthereumNetworkConfig()
-
-
-class EthereumVirtualMachineError(VirtualMachineError):
-    """
-    Raised when there is either an internal fault in the EVM
-    or a contract-defined revert, such as from an assert statement.
-    """
-
-    def __init__(self, revert_message: str):
-        super().__init__(revert_message)
-
-    @classmethod
-    def from_value_error(cls, value_error: ValueError):
-        """
-        Creates an instance of ``EthereumVirtualMachineError`` from
-        a web3 raised ``ValueError`.
-
-        Raises other ``TransactionError`` instances if it notices
-        the error is gas-related.
-        """
-        if not hasattr(value_error, "args"):
-            return None
-
-        if len(value_error.args) < 1:
-            return None
-
-        err_data = value_error.args[0]
-        if not isinstance(err_data, dict):
-            return None
-
-        message = err_data.get("message", json.dumps(err_data))
-        code = err_data.get("code")
-
-        if re.match(r"(.*)out of gas(.*)", message.lower()):
-            raise OutOfGasError(code=code)
-
-        # Try not to raise ``EthereumVirtualMachineError`` for any gas-related
-        # issues. This is to keep the ``EthereumVirtualMachineError`` more focused
-        # on contract-application specific faults.
-        other_gas_error_patterns = (
-            r"(.*)exceeds \w*?[ ]?gas limit(.*)",
-            r"(.*)requires at least \d* gas(.*)",
-        )
-        for pattern in other_gas_error_patterns:
-            if re.match(pattern, message.lower()):
-                raise TransactionError(message, code=code)
-
-        return cls(revert_message=message)
 
 
 class EthereumProvider(ProviderAPI):
@@ -170,7 +120,8 @@ class EthereumProvider(ProviderAPI):
         try:
             txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
         except ValueError as err:
-            vm_err = EthereumVirtualMachineError.from_value_error(err)
+            virtual_machine_error_class = self.network.ecosystem.virtual_machine_error_class
+            vm_err = virtual_machine_error_class.from_error(err)
             if vm_err:
                 raise vm_err
             raise
