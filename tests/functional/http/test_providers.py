@@ -4,7 +4,7 @@ import pytest
 from ape_http import EthereumProvider
 
 from ape.api import ReceiptAPI, TransactionStatusEnum
-from ape.exceptions import TransactionError
+from ape.exceptions import VirtualMachineError
 
 
 class TestEthereumProvider:
@@ -38,7 +38,7 @@ class TestEthereumProvider:
             "message": "Transaction gas limit is 100000000 and exceeds block gas limit of 30000000",
         }
         mock_web3.eth.send_raw_transaction.side_effect = ValueError(web3_error_data)
-        with pytest.raises(TransactionError) as err:
+        with pytest.raises(VirtualMachineError) as err:
             provider.send_transaction(mock_transaction)
 
         assert web3_error_data["message"] in str(err.value)
