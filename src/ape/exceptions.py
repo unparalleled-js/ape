@@ -47,7 +47,7 @@ class TransactionError(ContractError):
 
 class SignatureError(AccountsError):
     """
-    Raised when an transaction is not signed when it should be.
+    Raised when there are issues with transaction signatures.
     """
 
 
