@@ -5,7 +5,7 @@ from eth_utils import to_bytes
 from ape.logging import logger
 from ape.types import ABI, AddressType, ContractType
 
-from ..exceptions import ArgumentsLengthError, ContractDeployError, ContractError
+from ..exceptions import ArgumentsLengthError, ContractDeployError, TransactionError
 from .address import Address, AddressAPI
 from .base import dataclass
 from .providers import ProviderAPI, ReceiptAPI, TransactionAPI
@@ -137,7 +137,7 @@ class ContractTransaction:
             return sender.call(txn)
 
         else:
-            raise ContractError("Must specify a `sender`.")
+            raise TransactionError("Must specify a `sender`.")
 
 
 @dataclass

@@ -1,7 +1,15 @@
+from typing import Optional
+
+
 class ApeException(Exception):
     """
     An exception raised by ape.
     """
+
+    def __init__(self, message):
+        if not message.endswith("."):
+            message = f"{message}."
+        super().__init__(message)
 
 
 class AccountsError(ApeException):
@@ -21,6 +29,12 @@ class AliasAlreadyInUseError(AccountsError):
         super().__init__(f"Account with alias '{alias}' already in use.")
 
 
+class SignatureError(AccountsError):
+    """
+    Raised when there are issues with signing.
+    """
+
+
 class ContractError(ApeException):
     """
     Raised when issues occur when interacting with a contract
@@ -38,19 +52,6 @@ class ArgumentsLengthError(ContractError):
         super().__init__(message)
 
 
-class TransactionError(ContractError):
-    """
-    Raised when issues occur that caused the transaction to
-    revert in a virtual machine, such as gas-related issues.
-    """
-
-
-class SignatureError(AccountsError):
-    """
-    Raised when there are issues with transaction signatures.
-    """
-
-
 class DecodingError(ContractError):
     """
     Raised when issues occur while decoding data from
@@ -61,7 +62,36 @@ class DecodingError(ContractError):
         super().__init__("Output corrupted.")
 
 
-class ContractDeployError(ApeException):
+class TransactionError(ContractError):
+    """
+    Raised when issues occur related to transactions.
+    """
+
+    def __init__(self, message: str, code: Optional[int] = None):
+        self.code = code
+        if code:
+            message = f"({code}) {message}"
+        super().__init__(message)
+
+
+class VirtualMachineError(TransactionError):
+    """
+    Raised when there is either an internal fault in a virtual machine
+    or a contract-defined revert, such as from an assert statement.
+    """
+
+
+class OutOfGasError(TransactionError):
+    """
+    Raised when detecting a transaction failed because it ran
+    out of gas.
+    """
+
+    def __init__(self, code: Optional[int] = None):
+        super().__init__("The transaction ran out of gas.", code=code)
+
+
+class ContractDeployError(TransactionError):
     """
     Raised when a problem occurs when deploying a contract.
     """

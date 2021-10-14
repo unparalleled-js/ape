@@ -33,12 +33,12 @@ class TestEthereumProvider:
                 )
 
         mock_network_api.ecosystem.receipt_class = MockReceipt
-        web3_error_text = (
-            "{'code': -32000, 'message': 'Transaction gas limit is "
-            "100000000 and exceeds block gas limit of 30000000'}"
-        )
-        mock_web3.eth.wait_for_transaction_receipt.side_effect = ValueError(web3_error_text)
+        web3_error_data = {
+            "code": -32000,
+            "message": "Transaction gas limit is 100000000 and exceeds block gas limit of 30000000",
+        }
+        mock_web3.eth.send_raw_transaction.side_effect = ValueError(web3_error_data)
         with pytest.raises(TransactionError) as err:
             provider.send_transaction(mock_transaction)
 
-        assert web3_error_text in str(err.value)
+        assert web3_error_data["message"] in str(err.value)
