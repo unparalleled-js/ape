@@ -86,6 +86,13 @@ class VirtualMachineError(TransactionError):
 
     @classmethod
     def from_error(cls, err: Exception):
+        """
+        Creates this class from the error message of the given
+        error.
+
+        This should be overridden whenever possible to handle
+        provider-specific use-cases for raising this error.
+        """
         return cls(str(err))
 
 

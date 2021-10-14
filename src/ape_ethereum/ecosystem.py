@@ -35,7 +35,7 @@ NETWORKS = {
 
 class EthereumVirtualMachineError(VirtualMachineError):
     """
-    Import this error in your Ethereum providers and raise
+    Use this error in your Ethereum providers and raise
     when detecting internal faults from the EVM or
     contract-defined reverts such as from assert statements.
     """
