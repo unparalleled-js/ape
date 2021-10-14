@@ -18,7 +18,7 @@ class AliasAlreadyInUseError(AccountsError):
 
     def __init__(self, alias: str):
         self.alias = alias
-        super().__init__(f"Account with alias '{alias}' already in use")
+        super().__init__(f"Account with alias '{alias}' already in use.")
 
 
 class ContractError(ApeException):
@@ -58,7 +58,7 @@ class DecodingError(ContractError):
     """
 
     def __init__(self):
-        super().__init__("Output corrupted")
+        super().__init__("Output corrupted.")
 
 
 class ContractDeployError(ApeException):
@@ -80,7 +80,7 @@ class NetworkNotFoundError(NetworkError):
 
     def __init__(self, network: str):
         self.network = network
-        message = f"No network named '{network}'"
+        message = f"No network named '{network}'."
         super().__init__(message)
 
 

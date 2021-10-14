@@ -23,7 +23,7 @@ class ContractConstructor:
 
     def __post_init__(self):
         if len(self.deployment_bytecode) == 0:
-            raise ContractDeployError("No bytecode to deploy")
+            raise ContractDeployError("No bytecode to deploy.")
 
     def __repr__(self) -> str:
         return self.abi.signature if self.abi else "constructor()"
@@ -136,7 +136,7 @@ class ContractTransaction:
             return sender.call(txn)
 
         else:
-            raise ContractError("Must specify a `sender`")
+            raise ContractError("Must specify a `sender`.")
 
 
 @dataclass

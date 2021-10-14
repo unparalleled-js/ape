@@ -29,7 +29,7 @@ class TransactionAPI:
 
     def __post_init__(self):
         if not self.is_valid:
-            raise ProviderError("Transaction is not valid")
+            raise ProviderError("Transaction is not valid.")
 
     @property
     def total_transfer_value(self) -> int:

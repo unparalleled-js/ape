@@ -47,9 +47,9 @@ def get_relative_path(target: Path, anchor: Path) -> Path:
     NOTE: Both paths must be absolute
     """
     if not target.is_absolute():
-        raise ValueError("'target' must be an absolute path")
+        raise ValueError("'target' must be an absolute path.")
     if not anchor.is_absolute():
-        raise ValueError("'anchor' must be an absolute path")
+        raise ValueError("'anchor' must be an absolute path.")
 
     anchor_copy = Path(str(anchor))
     levels_deep = 0
@@ -135,7 +135,7 @@ def compute_checksum(source: bytes, algorithm: str = "md5") -> str:
     if algorithm == "md5":
         hasher = md5
     else:
-        raise ValueError(f"Unknown algorithm `{algorithm}`")
+        raise ValueError(f"Unknown algorithm `{algorithm}`.")
 
     return hasher(source).hexdigest()
 

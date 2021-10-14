@@ -19,14 +19,14 @@ def test_get_relative_path_given_relative_path():
     with pytest.raises(ValueError) as err:
         get_relative_path(relative_script_path, _TEST_DIRECTORY_PATH)
 
-    assert str(err.value) == "'target' must be an absolute path"
+    assert str(err.value) == "'target' must be an absolute path."
 
     relative_project_path = Path("../This/is/a/test")
 
     with pytest.raises(ValueError) as err:
         get_relative_path(_TEST_FILE_PATH, relative_project_path)
 
-    assert str(err.value) == "'anchor' must be an absolute path"
+    assert str(err.value) == "'anchor' must be an absolute path."
 
 
 def test_get_relative_path_same_path():

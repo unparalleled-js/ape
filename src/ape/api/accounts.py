@@ -55,7 +55,7 @@ class AccountAPI(AddressAPI):
         if txn.nonce is None:
             txn.nonce = self.nonce
         elif txn.nonce < self.nonce:
-            raise AccountsError("Invalid nonce, will not publish")
+            raise AccountsError("Invalid nonce, will not publish.")
 
         # TODO: Add `GasEstimationAPI`
         if txn.gas_price is None:
@@ -72,8 +72,8 @@ class AccountAPI(AddressAPI):
 
         if txn.total_transfer_value > self.balance:
             raise AccountsError(
-                f"Transfer value meets or exceeds account balance "
-                f"(transfer_value={txn.total_transfer_value}, balance={self.balance})"
+                f"Transfer value meets or exceeds account balance. "
+                f"(transfer_value={txn.total_transfer_value}, balance={self.balance})."
             )
 
         txn.signature = self.sign_transaction(txn)
@@ -131,7 +131,7 @@ class AccountAPI(AddressAPI):
         receipt = self.call(txn)
 
         if not receipt.contract_address:
-            raise AccountsError(f"'{receipt.txn_hash}' did not create a contract")
+            raise AccountsError(f"'{receipt.txn_hash}' did not create a contract.")
 
         return ContractInstance(  # type: ignore
             _provider=self.provider,
@@ -169,25 +169,25 @@ class AccountContainerAPI:
         self._verify_account_type(account)
 
         if account.address in self:
-            raise AccountsError(f"Account '{account.address}' already in container")
+            raise AccountsError(f"Account '{account.address}' already in container.")
 
         self._verify_unused_alias(account)
 
         self.__setitem__(account.address, account)
 
     def __setitem__(self, address: AddressType, account: AccountAPI):
-        raise NotImplementedError("Must define this method to use `container.append(acct)`")
+        raise NotImplementedError("Must define this method to use `container.append(acct)`.")
 
     def remove(self, account: AccountAPI):
         self._verify_account_type(account)
 
         if account.address not in self:
-            raise AccountsError(f"Account '{account.address}' not known")
+            raise AccountsError(f"Account '{account.address}' not known.")
 
         self.__delitem__(account.address)
 
     def __delitem__(self, address: AddressType):
-        raise NotImplementedError("Must define this method to use `container.remove(acct)`")
+        raise NotImplementedError("Must define this method to use `container.remove(acct)`.")
 
     def __contains__(self, address: AddressType) -> bool:
         try:
@@ -201,7 +201,7 @@ class AccountContainerAPI:
         if not isinstance(account, self.account_type):
             message = (
                 f"Container '{type(account).__name__}' is an incorrect "
-                f"type for container '{type(self.account_type).__name__}'"
+                f"type for container '{type(self.account_type).__name__}'."
             )
             raise AccountsError(message)
 

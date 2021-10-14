@@ -49,7 +49,7 @@ class TestAccountAPI:
         with pytest.raises(AccountsError) as err:
             test_account_api_can_sign.call(mock_transaction)
 
-        assert str(err.value) == "Invalid nonce, will not publish"
+        assert str(err.value) == "Invalid nonce, will not publish."
 
     def test_not_enough_funds_raises_error(
         self, mocker, mock_provider_api, test_account_api_can_sign
@@ -65,7 +65,7 @@ class TestAccountAPI:
             test_account_api_can_sign.call(mock_transaction)
 
         expected = (
-            "Transfer value meets or exceeds account balance (transfer_value=1000000, balance=0)"
+            "Transfer value meets or exceeds account balance. (transfer_value=1000000, balance=0)."
         )
         assert str(err.value) == expected
 
@@ -79,7 +79,7 @@ class TestAccountAPI:
         with pytest.raises(AccountsError) as err:
             test_account_api_no_sign.call(mock_transaction)
 
-        assert str(err.value) == "The transaction was not signed"
+        assert str(err.value) == "The transaction was not signed."
 
     def test_transaction_when_no_gas_limit_calls_estimate_gas_cost(
         self, mocker, mock_provider_api, test_account_api_can_sign
