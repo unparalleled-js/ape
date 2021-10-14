@@ -1,3 +1,5 @@
+import json
+import re
 from typing import Any, Optional
 
 from eth_abi import decode_abi as abi_decode
@@ -12,7 +14,13 @@ from eth_utils import keccak, to_bytes, to_int
 from hexbytes import HexBytes
 
 from ape.api import ContractLog, EcosystemAPI, ReceiptAPI, TransactionAPI, TransactionStatusEnum
-from ape.exceptions import DecodingError, SignatureError
+from ape.exceptions import (
+    DecodingError,
+    OutOfGasError,
+    SignatureError,
+    TransactionError,
+    VirtualMachineError,
+)
 from ape.types import ABI, AddressType
 
 NETWORKS = {
@@ -23,6 +31,53 @@ NETWORKS = {
     "rinkeby": (4, 4),
     "goerli": (420, 420),
 }
+
+
+class EthereumVirtualMachineError(VirtualMachineError):
+    """
+    Import this error in your Ethereum providers and raise
+    when detecting internal faults from the EVM or
+    contract-defined reverts such as from assert statements.
+    """
+
+    def __init__(self, revert_message: str):
+        super().__init__(revert_message)
+
+    @classmethod
+    def from_error(cls, err: Exception):
+        """
+        Creates an instance of ``EthereumVirtualMachineError`` from
+        a web3 raised ``ValueError`.
+
+        Raises other ``TransactionError`` instances if it notices
+        the error is gas-related.
+        """
+
+        if not isinstance(err, ValueError) or not hasattr(err, "args") or len(err.args) < 1:
+            return None
+
+        err_data = err.args[0]
+        if not isinstance(err_data, dict):
+            return None
+
+        message = err_data.get("message", json.dumps(err_data))
+        code = err_data.get("code")
+
+        if re.match(r"(.*)out of gas(.*)", message.lower()):
+            raise OutOfGasError(code=code)
+
+        # Try not to raise ``EthereumVirtualMachineError`` for any gas-related
+        # issues. This is to keep the ``EthereumVirtualMachineError`` more focused
+        # on contract-application specific faults.
+        other_gas_error_patterns = (
+            r"(.*)exceeds \w*?[ ]?gas limit(.*)",
+            r"(.*)requires at least \d* gas(.*)",
+        )
+        for pattern in other_gas_error_patterns:
+            if re.match(pattern, message.lower()):
+                raise TransactionError(message, code=code)
+
+        return cls(message)
 
 
 # TODO: Fix this to add support for TypedTransaction
@@ -82,6 +137,7 @@ class Receipt(ReceiptAPI):
 class Ethereum(EcosystemAPI):
     transaction_class = Transaction
     receipt_class = Receipt
+    virtual_machine_error_class = EthereumVirtualMachineError
 
     def encode_calldata(self, abi: ABI, *args) -> bytes:
         if abi.inputs:

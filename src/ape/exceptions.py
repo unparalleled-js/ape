@@ -80,6 +80,14 @@ class VirtualMachineError(TransactionError):
     or a contract-defined revert, such as from an assert/require statement.
     """
 
+    def __init__(self, revert_message: str):
+        self.revert_message = revert_message
+        super().__init__(revert_message)
+
+    @classmethod
+    def from_error(cls, err: Exception):
+        return cls(str(err))
+
 
 class OutOfGasError(TransactionError):
     """
