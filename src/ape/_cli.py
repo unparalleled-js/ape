@@ -40,7 +40,7 @@ class ApeCLI(click.MultiCommand):
         except click.UsageError as err:
             self._suggest_cmd(err)
         except ApeException as err:
-            raise Abort(str(err)) from err
+            raise Abort(f"({type(err).__name__}) {err}") from err
 
     @staticmethod
     def _suggest_cmd(usage_error):
@@ -69,7 +69,7 @@ class ApeCLI(click.MultiCommand):
             entry_points = metadata.entry_points()  # type: ignore
 
             if "ape_cli_subcommands" not in entry_points:
-                raise Abort("Missing registered cli subcommands.")
+                raise Abort("Missing registered cli subcommands")
 
             self._commands = {
                 clean_plugin_name(entry_point.name): entry_point.load
