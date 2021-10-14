@@ -78,7 +78,7 @@ class AccountAPI(AddressAPI):
 
         txn.signature = self.sign_transaction(txn)
         if not txn.signature:
-            raise SignatureError("The transaction is not signed.")
+            raise SignatureError("The transaction was not signed.")
 
         return self.provider.send_transaction(txn)
 

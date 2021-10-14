@@ -28,6 +28,16 @@ class ContractError(ApeException):
     """
 
 
+class ArgumentsLengthError(ContractError):
+    """
+    Raised when calling a contract method with the wrong number of arguments.
+    """
+
+    def __init__(self):
+        message = "The number of the given arguments do not match what is defined in the ABI."
+        super().__init__(message)
+
+
 class TransactionError(ContractError):
     """
     Raised when issues occur that caused the transaction to
