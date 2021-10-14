@@ -5,7 +5,7 @@ from eth_utils import to_bytes
 from ape.logging import logger
 from ape.types import ABI, AddressType, ContractType
 
-from ..exceptions import ContractCallError, ContractDeployError
+from ..exceptions import ContractDeployError, ContractMethodError
 from .address import Address, AddressAPI
 from .base import dataclass
 from .providers import ProviderAPI, ReceiptAPI, TransactionAPI
@@ -94,7 +94,7 @@ class ContractCallHandler:
     def __call__(self, *args, **kwargs) -> Any:
         selected_abi = _select_abi(self.abis, args)
         if not selected_abi:
-            raise ContractCallError()
+            raise ContractMethodError()
 
         return ContractCall(  # type: ignore
             abi=selected_abi,
@@ -136,7 +136,7 @@ class ContractTransaction:
             return sender.call(txn)
 
         else:
-            raise ContractCallError("Must specify a `sender`")
+            raise ContractMethodError("Must specify a `sender`")
 
 
 @dataclass
@@ -152,7 +152,7 @@ class ContractTransactionHandler:
     def __call__(self, *args, **kwargs) -> ReceiptAPI:
         selected_abi = _select_abi(self.abis, args)
         if not selected_abi:
-            raise ContractCallError()
+            raise ContractMethodError()
 
         return ContractTransaction(  # type: ignore
             abi=selected_abi,

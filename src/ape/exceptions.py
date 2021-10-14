@@ -28,7 +28,7 @@ class ContractError(ApeException):
     """
 
 
-class ContractCallError(ContractError):
+class ContractMethodError(ContractError):
     """
     Raised when issues occur that prevent ape from calling contract methods.
     For example, the user used the wrong number of arguments for the method
@@ -40,7 +40,7 @@ class ContractCallError(ContractError):
         super().__init__(message)
 
 
-class TransactionError(AccountsError, ContractError):
+class TransactionError(ContractError):
     """
     Raised when issues occur that caused the transaction to
     revert, such as gas-related issues.
