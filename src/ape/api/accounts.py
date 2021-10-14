@@ -10,7 +10,7 @@ from ape.types import (
 )
 from ape.utils import cached_property
 
-from ..exceptions import AccountsError, AliasAlreadyInUseError, TransactionError
+from ..exceptions import AccountsError, AliasAlreadyInUseError, SignatureError, TransactionError
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
@@ -78,7 +78,7 @@ class AccountAPI(AddressAPI):
 
         txn.signature = self.sign_transaction(txn)
         if not txn.signature:
-            raise AccountsError("The transaction was not signed")
+            raise SignatureError("The transaction is not signed.")
 
         return self.provider.send_transaction(txn)
 

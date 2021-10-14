@@ -28,22 +28,16 @@ class ContractError(ApeException):
     """
 
 
-class ContractMethodError(ContractError):
-    """
-    Raised when issues occur that prevent ape from calling contract methods.
-    For example, the user used the wrong number of arguments for the method
-    or forgot the `sender` field in a transaction.
-    """
-
-    def __init__(self, message=None):
-        message = message or "Number of args does not match"
-        super().__init__(message)
-
-
 class TransactionError(ContractError):
     """
     Raised when issues occur that caused the transaction to
-    revert, such as gas-related issues.
+    revert in a virtual machine, such as gas-related issues.
+    """
+
+
+class SignatureError(AccountsError):
+    """
+    Raised when an transaction is not signed when it should be.
     """
 
 
