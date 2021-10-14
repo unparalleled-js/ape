@@ -38,6 +38,7 @@ class TransactionAPI:
         Useful for determining if an account balance can afford
         to submit the transaction.
         """
+        # TODO Support EIP-1559
         return (self.gas_limit or 0) * (self.gas_price or 0) + self.value
 
     @property
