@@ -12,7 +12,6 @@ from .base import abstractdataclass, abstractmethod, dataclass
 from .config import ConfigItem
 
 if TYPE_CHECKING:
-    from ape.exceptions import VirtualMachineError
     from ape.managers.config import ConfigManager
     from ape.managers.networks import NetworkManager
 
@@ -36,7 +35,6 @@ class EcosystemAPI:
 
     transaction_class: Type["TransactionAPI"]
     receipt_class: Type["ReceiptAPI"]
-    virtual_machine_error_class: Type["VirtualMachineError"]
 
     _default_network: str = "development"
 

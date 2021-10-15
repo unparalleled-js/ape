@@ -7,6 +7,7 @@ from web3.middleware import geth_poa_middleware
 from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI
 from ape.api.config import ConfigItem
 from ape.exceptions import ProviderError
+from ape.utils import get_tx_error_from_web3_value_error
 
 DEFAULT_SETTINGS = {"uri": "http://localhost:8545"}
 
@@ -120,10 +121,9 @@ class EthereumProvider(ProviderAPI):
         try:
             txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
         except ValueError as err:
-            virtual_machine_error_class = self.network.ecosystem.virtual_machine_error_class
-            vm_err = virtual_machine_error_class.from_error(err)
-            if vm_err:
-                raise vm_err
+            tx_error = get_tx_error_from_web3_value_error(err)
+            if tx_error:
+                raise tx_error
             raise
 
         return self.get_transaction(txn_hash.hex())

@@ -1,15 +1,17 @@
 import collections
 import json
 import os
+import re
 from copy import deepcopy
 from functools import lru_cache
 from hashlib import md5
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import yaml
 from importlib_metadata import PackageNotFoundError, packages_distributions, version
 
+from ape.exceptions import OutOfGasError, TransactionError, VirtualMachineError
 from ape.logging import logger
 
 try:
@@ -138,6 +140,41 @@ def compute_checksum(source: bytes, algorithm: str = "md5") -> str:
         raise ValueError(f"Unknown algorithm `{algorithm}`.")
 
     return hasher(source).hexdigest()
+
+
+def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> Optional[TransactionError]:
+    """
+    Returns a custom error from ``ValueError`` from web3.py.
+
+    If returns `None`, the error is not detected as stemming from
+    web3.
+    """
+    if not hasattr(web3_value_error, "args") or len(web3_value_error.args) < 1:
+        # Not known as Web3 error
+        return None
+
+    err_data = web3_value_error.args[0]
+    if not isinstance(err_data, dict):
+        return None
+
+    message = err_data.get("message", json.dumps(err_data))
+    code = err_data.get("code")
+
+    if re.match(r"(.*)out of gas(.*)", message.lower()):
+        return OutOfGasError(code=code)
+
+    # Try not to raise ``EthereumVirtualMachineError`` for any gas-related
+    # issues. This is to keep the ``EthereumVirtualMachineError`` more focused
+    # on contract-application specific faults.
+    other_gas_error_patterns = (
+        r"(.*)exceeds \w*?[ ]?gas limit(.*)",
+        r"(.*)requires at least \d* gas(.*)",
+    )
+    for pattern in other_gas_error_patterns:
+        if re.match(pattern, message.lower()):
+            return TransactionError(message, code=code)
+
+    return VirtualMachineError(message)
 
 
 __all__ = [
