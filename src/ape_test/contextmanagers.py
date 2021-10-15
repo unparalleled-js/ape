@@ -1,6 +1,6 @@
 from typing import Optional, Type
 
-from ape.exceptions import TransactionError
+from ape.exceptions import VirtualMachineError
 
 
 class RevertsContextManager:
@@ -10,16 +10,15 @@ class RevertsContextManager:
     def __enter__(self):
         pass
 
-    def __exit__(self, exc_type: Type, exc_value: TransactionError, traceback) -> bool:
+    def __exit__(self, exc_type: Type, exc_value: Exception, traceback) -> bool:
         if exc_type is None:
             raise AssertionError("Transaction did not revert")
 
-        if exc_type is not TransactionError:
+        if exc_type is not VirtualMachineError:
             raise
 
-        if self.expected_message is not None:
-            actual = str(exc_value) or ""
-            if self.expected_message not in actual:
-                raise AssertionError(f"Unexpected revert string '{actual}'.") from None
+        actual = str(exc_value) or ""
+        if self.expected_message is None or self.expected_message in actual:
+            return True
 
-        return True
+        raise AssertionError(f"Unexpected revert string '{actual}'.")

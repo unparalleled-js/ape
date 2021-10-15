@@ -1,3 +1,8 @@
+import ape
+
+from .contextmanagers import RevertsContextManager
+
+
 class PytestApeRunner:
     """
     Hooks in this class are loaded when running without xdist, and by xdist
@@ -6,6 +11,7 @@ class PytestApeRunner:
 
     def __init__(self, config):
         self.config = config
+        ape.reverts = RevertsContextManager
 
     def pytest_sessionstart(self):
         """
