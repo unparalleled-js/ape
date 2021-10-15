@@ -62,7 +62,18 @@ class EthereumProvider(ProviderAPI):
         to allow the transaction to complete.
         The transaction will not be added to the blockchain.
         """
-        return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
+        try:
+            return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
+        except ValueError as err:
+            tx_error = get_tx_error_from_web3_value_error(err)
+            if tx_error:
+                raise tx_error
+
+            message = (
+                f"Gas estimation failed: '{err}'. This transaction will likely revert. "
+                "If you wish to broadcast, you must set the gas limit manually."
+            )
+            raise TransactionError(message) from err
 
     @property
     def chain_id(self) -> int:

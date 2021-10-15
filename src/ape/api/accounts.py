@@ -8,9 +8,9 @@ from ape.types import (
     SignableMessage,
     TransactionSignature,
 )
-from ape.utils import cached_property, get_tx_error_from_web3_value_error
+from ape.utils import cached_property
 
-from ..exceptions import AccountsError, AliasAlreadyInUseError, SignatureError, TransactionError
+from ..exceptions import AccountsError, AliasAlreadyInUseError, SignatureError
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
@@ -90,18 +90,7 @@ class AccountAPI(AddressAPI):
         return convert
 
     def _estimate_gas(self, txn: TransactionAPI) -> int:
-        try:
-            return self.provider.estimate_gas_cost(txn)
-        except ValueError as err:
-            tx_error = get_tx_error_from_web3_value_error(err)
-            if tx_error:
-                raise tx_error
-
-            message = (
-                f"Gas estimation failed: '{err}'. This transaction will likely revert. "
-                "If you wish to broadcast, you must set the gas limit manually."
-            )
-            raise TransactionError(message) from err
+        return self.provider.estimate_gas_cost(txn)
 
     def transfer(
         self,
