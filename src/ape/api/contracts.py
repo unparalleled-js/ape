@@ -5,7 +5,7 @@ from eth_utils import to_bytes
 from ape.logging import logger
 from ape.types import ABI, AddressType, ContractType
 
-from ..exceptions import ContractCallError, ContractDeployError
+from ..exceptions import ArgumentsLengthError, ContractDeployError, TransactionError
 from .address import Address, AddressAPI
 from .base import dataclass
 from .providers import ProviderAPI, ReceiptAPI, TransactionAPI
@@ -23,7 +23,7 @@ class ContractConstructor:
 
     def __post_init__(self):
         if len(self.deployment_bytecode) == 0:
-            raise ContractDeployError("No bytecode to deploy")
+            raise ContractDeployError("No bytecode to deploy.")
 
     def __repr__(self) -> str:
         return self.abi.signature if self.abi else "constructor()"
@@ -62,6 +62,7 @@ class ContractCall:
 
     def __call__(self, *args, **kwargs) -> Any:
         txn = self.encode(*args, **kwargs)
+        txn.chain_id = self.provider.network.chain_id
 
         if "sender" in kwargs and not isinstance(kwargs["sender"], str):
             txn.sender = kwargs["sender"].address
@@ -94,7 +95,7 @@ class ContractCallHandler:
     def __call__(self, *args, **kwargs) -> Any:
         selected_abi = _select_abi(self.abis, args)
         if not selected_abi:
-            raise ContractCallError()
+            raise ArgumentsLengthError()
 
         return ContractCall(  # type: ignore
             abi=selected_abi,
@@ -136,7 +137,7 @@ class ContractTransaction:
             return sender.call(txn)
 
         else:
-            raise ContractCallError("Must specify a `sender`")
+            raise TransactionError("Must specify a `sender`.")
 
 
 @dataclass
@@ -152,7 +153,7 @@ class ContractTransactionHandler:
     def __call__(self, *args, **kwargs) -> ReceiptAPI:
         selected_abi = _select_abi(self.abis, args)
         if not selected_abi:
-            raise ContractCallError()
+            raise ArgumentsLengthError()
 
         return ContractTransaction(  # type: ignore
             abi=selected_abi,

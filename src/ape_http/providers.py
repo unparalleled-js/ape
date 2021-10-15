@@ -7,6 +7,7 @@ from web3.middleware import geth_poa_middleware
 from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI
 from ape.api.config import ConfigItem
 from ape.exceptions import ProviderError
+from ape.utils import get_tx_error_from_web3_value_error
 
 DEFAULT_SETTINGS = {"uri": "http://localhost:8545"}
 
@@ -47,6 +48,7 @@ class EthereumProvider(ProviderAPI):
             )
 
     def disconnect(self):
+        # noinspection PyTypeChecker
         self._web3 = None
 
     def update_settings(self, new_settings: dict):
@@ -100,8 +102,7 @@ class EthereumProvider(ProviderAPI):
         Executes a new message call immediately without creating a
         transaction on the block chain.
         """
-        data = txn.encode()
-        return self._web3.eth.call(data)
+        return self._web3.eth.call(txn.as_dict())
 
     def get_transaction(self, txn_hash: str) -> ReceiptAPI:
         """
@@ -117,7 +118,14 @@ class EthereumProvider(ProviderAPI):
         Creates a new message call transaction or a contract creation
         for signed transactions.
         """
-        txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
+        try:
+            txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
+        except ValueError as err:
+            tx_error = get_tx_error_from_web3_value_error(err)
+            if tx_error:
+                raise tx_error
+            raise
+
         return self.get_transaction(txn_hash.hex())
 
     def get_events(self, **filter_params) -> Iterator[dict]:
