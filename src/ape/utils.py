@@ -174,7 +174,6 @@ def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> Optional
         if re.match(pattern, message.lower()):
             return TransactionError(message, code=code)
 
-    breakpoint()
     return VirtualMachineError(message)
 
 
