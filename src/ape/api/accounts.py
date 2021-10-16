@@ -72,7 +72,7 @@ class AccountAPI(AddressAPI):
 
         if txn.total_transfer_value > self.balance:
             raise AccountsError(
-                f"Transfer value meets or exceeds account balance. "
+                "Transfer value meets or exceeds account balance. "
                 f"(transfer_value={txn.total_transfer_value}, balance={self.balance})."
             )
 
