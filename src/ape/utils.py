@@ -147,12 +147,12 @@ def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> Transact
     Returns a custom error from ``ValueError`` from web3.py.
     """
     if not hasattr(web3_value_error, "args") or len(web3_value_error.args) < 1:
-        # Not known as Web3 error
-        return TransactionError(str(web3_value_error))
+        # Not known from provider
+        return TransactionError(base_err=web3_value_error)
 
     err_data = web3_value_error.args[0]
     if not isinstance(err_data, dict):
-        return TransactionError(str(web3_value_error))
+        return TransactionError(base_err=web3_value_error)
 
     message = err_data.get("message", json.dumps(err_data))
     code = err_data.get("code")
@@ -169,7 +169,7 @@ def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> Transact
     )
     for pattern in other_gas_error_patterns:
         if re.match(pattern, message.lower()):
-            return TransactionError(message, code=code)
+            return TransactionError(base_err=web3_value_error, message=message, code=code)
 
     return VirtualMachineError(message)
 
