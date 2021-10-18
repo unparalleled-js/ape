@@ -16,8 +16,7 @@ class RevertsContextManager:
 
         if not isinstance(exc_value, VirtualMachineError):
             raise AssertionError(
-                f"Transaction did not revert.\n"
-                f"However, exception occurred: {exc_value}"
+                f"Transaction did not revert.\n" f"However, exception occurred: {exc_value}"
             ) from exc_value
 
         if (
