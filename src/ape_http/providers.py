@@ -6,7 +6,7 @@ from web3.middleware import geth_poa_middleware
 
 from ape.api import ProviderAPI, ReceiptAPI, TransactionAPI
 from ape.api.config import ConfigItem
-from ape.exceptions import ProviderError, TransactionError
+from ape.exceptions import ProviderError, TransactionError, VirtualMachineError
 from ape.utils import get_tx_error_from_web3_value_error
 
 DEFAULT_SETTINGS = {"uri": "http://localhost:8545"}
@@ -66,6 +66,12 @@ class EthereumProvider(ProviderAPI):
             return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
         except ValueError as err:
             tx_error = get_tx_error_from_web3_value_error(err)
+
+            # If this is the cause of a would-be revert,
+            # raise the VirtualMachineError so that we can confirm tx-reverts.
+            if isinstance(txn, VirtualMachineError):
+                raise tx_error from err
+
             message = (
                 f"Gas estimation failed: '{tx_error}'. This transaction will likely revert. "
                 "If you wish to broadcast, you must set the gas limit manually."
