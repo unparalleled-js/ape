@@ -28,7 +28,6 @@ ecosystems:
     providers:
     - name: http
       isDefault: true
-    - name: test
 """
 
 
