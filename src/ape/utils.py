@@ -6,7 +6,7 @@ from copy import deepcopy
 from functools import lru_cache
 from hashlib import md5
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import yaml
 from importlib_metadata import PackageNotFoundError, packages_distributions, version
@@ -142,20 +142,17 @@ def compute_checksum(source: bytes, algorithm: str = "md5") -> str:
     return hasher(source).hexdigest()
 
 
-def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> Optional[TransactionError]:
+def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> TransactionError:
     """
     Returns a custom error from ``ValueError`` from web3.py.
-
-    If returns `None`, the error is not detected as stemming from
-    web3.
     """
     if not hasattr(web3_value_error, "args") or len(web3_value_error.args) < 1:
         # Not known as Web3 error
-        return None
+        return TransactionError(str(web3_value_error))
 
     err_data = web3_value_error.args[0]
     if not isinstance(err_data, dict):
-        return None
+        return TransactionError(str(web3_value_error))
 
     message = err_data.get("message", json.dumps(err_data))
     code = err_data.get("code")

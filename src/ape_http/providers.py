@@ -66,11 +66,8 @@ class EthereumProvider(ProviderAPI):
             return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
         except ValueError as err:
             tx_error = get_tx_error_from_web3_value_error(err)
-            if tx_error:
-                raise tx_error
-
             message = (
-                f"Gas estimation failed: '{err}'. This transaction will likely revert. "
+                f"Gas estimation failed: '{tx_error}'. This transaction will likely revert. "
                 "If you wish to broadcast, you must set the gas limit manually."
             )
             raise TransactionError(message) from err
@@ -132,11 +129,7 @@ class EthereumProvider(ProviderAPI):
         try:
             txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
         except ValueError as err:
-            tx_error = get_tx_error_from_web3_value_error(err)
-            if tx_error:
-                raise tx_error
-
-            raise TransactionError(str(err)) from err
+            raise get_tx_error_from_web3_value_error(err) from err
 
         return self.get_transaction(txn_hash.hex())
 

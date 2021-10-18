@@ -64,7 +64,7 @@ class AccountAPI(AddressAPI):
 
         # NOTE: Allow overriding gas limit
         if txn.gas_limit is None:
-            txn.gas_limit = self._estimate_gas(txn)
+            txn.gas_limit = self.provider.estimate_gas_cost(txn)
         # else: assume user specified the correct amount or txn will fail and waste gas
 
         if send_everything:
@@ -72,7 +72,7 @@ class AccountAPI(AddressAPI):
 
         if txn.total_transfer_value > self.balance:
             raise AccountsError(
-                f"Transfer value meets or exceeds account balance. "
+                "Transfer value meets or exceeds account balance. "
                 f"(transfer_value={txn.total_transfer_value}, balance={self.balance})."
             )
 
@@ -88,9 +88,6 @@ class AccountAPI(AddressAPI):
         from ape import convert
 
         return convert
-
-    def _estimate_gas(self, txn: TransactionAPI) -> int:
-        return self.provider.estimate_gas_cost(txn)
 
     def transfer(
         self,
