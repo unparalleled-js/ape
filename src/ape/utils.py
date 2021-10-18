@@ -160,8 +160,8 @@ def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> Transact
     if re.match(r"(.*)out of gas(.*)", message.lower()):
         return OutOfGasError(code=code)
 
-    # Try not to raise ``EthereumVirtualMachineError`` for any gas-related
-    # issues. This is to keep the ``EthereumVirtualMachineError`` more focused
+    # Try not to raise ``VirtualMachineError`` for any gas-related
+    # issues. This is to keep the ``VirtualMachineError`` more focused
     # on contract-application specific faults.
     other_gas_error_patterns = (
         r"(.*)exceeds \w*?[ ]?gas limit(.*)",
