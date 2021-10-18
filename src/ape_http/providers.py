@@ -70,7 +70,7 @@ class EthereumProvider(ProviderAPI):
                 f"Gas estimation failed: '{tx_error}'. This transaction will likely revert. "
                 "If you wish to broadcast, you must set the gas limit manually."
             )
-            raise TransactionError(message) from err
+            raise TransactionError(base_err=tx_error, message=message) from err
 
     @property
     def chain_id(self) -> int:

@@ -137,7 +137,7 @@ class ContractTransaction:
             return sender.call(txn)
 
         else:
-            raise TransactionError("Must specify a `sender`.")
+            raise TransactionError(message="Must specify a `sender`.")
 
 
 @dataclass

@@ -67,7 +67,15 @@ class TransactionError(ContractError):
     Raised when issues occur related to transactions.
     """
 
-    def __init__(self, message: str, code: Optional[int] = None):
+    def __init__(
+        self,
+        base_err: Optional[Exception] = None,
+        message: Optional[str] = None,
+        code: Optional[int] = None,
+    ):
+        self.base_err = base_err
+        if not message:
+            message = str(base_err) if base_err else "Tranaction Failed"
         self.code = code
         if code:
             message = f"({code}) {message}"
@@ -81,8 +89,7 @@ class VirtualMachineError(TransactionError):
     """
 
     def __init__(self, revert_message: str):
-        self.revert_message = revert_message
-        super().__init__(revert_message)
+        super().__init__(message=revert_message)
 
     @classmethod
     def from_error(cls, err: Exception):
@@ -103,7 +110,7 @@ class OutOfGasError(TransactionError):
     """
 
     def __init__(self, code: Optional[int] = None):
-        super().__init__("The transaction ran out of gas.", code=code)
+        super().__init__(message="The transaction ran out of gas.", code=code)
 
 
 class ContractDeployError(TransactionError):
