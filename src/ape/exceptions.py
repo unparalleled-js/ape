@@ -76,10 +76,12 @@ class TransactionError(ContractError):
         self.base_err = base_err
         if not message:
             message = str(base_err) if base_err else "Tranaction Failed"
+
+        self.message = message
         self.code = code
-        if code:
-            message = f"({code}) {message}"
-        super().__init__(message)
+
+        ex_message = f"({code}) {message}" if code else message
+        super().__init__(ex_message)
 
 
 class VirtualMachineError(TransactionError):
@@ -90,6 +92,10 @@ class VirtualMachineError(TransactionError):
 
     def __init__(self, revert_message: str):
         super().__init__(message=revert_message)
+
+    @property
+    def revert_message(self):
+        return self.message
 
     @classmethod
     def from_error(cls, err: Exception):
