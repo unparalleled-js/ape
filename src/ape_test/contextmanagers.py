@@ -12,19 +12,20 @@ class RevertsContextManager:
 
     def __exit__(self, exc_type: Type, exc_value: Exception, traceback) -> bool:
         if exc_type is None:
-            raise AssertionError("Transaction did not revert")
+            raise AssertionError("Transaction did not revert.")
 
-        if not isinstance(exc_value, TransactionError):
-            raise
+        if not isinstance(exc_value, VirtualMachineError):
+            raise AssertionError(
+                f"Transaction did not revert.\n"
+                f"However, exception occurred: {exc_value}"
+            ) from exc_value
 
-        if isinstance(exc_value, VirtualMachineError):
-            actual = exc_value.revert_message
-        elif exc_type is TransactionError and type(exc_value.base_err) is VirtualMachineError:
-            actual = exc_value.base_err.revert_message
-        else:
-            raise
+        if (
+            self.expected_message is not None
+            and self.expected_message not in exc_value.revert_message
+        ):
+            raise AssertionError(
+                f"'{self.expected_message}' not found in revert message '{exc_value.revert_message}'."
+            )
 
-        if self.expected_message is None or self.expected_message in actual:
-            return True
-
-        raise AssertionError(f"Unexpected revert string '{actual}'.")
+        return True  # Assertion passes
