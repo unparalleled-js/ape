@@ -1,4 +1,3 @@
-import json
 from typing import Iterator
 
 from eth_tester.backends import PyEVMBackend  # type: ignore
@@ -82,10 +81,8 @@ class LocalNetwork(TestProviderAPI):
         return iter(self._web3.eth.get_logs(filter_params))  # type: ignore
 
     def snapshot(self) -> str:
-        blocks_dict = self._tester.ethereum_tester.take_snapshot()
-        return json.dumps(blocks_dict)
+        return self._tester.take_snapshot()
 
     def revert(self, snapshot_id: str):
         if snapshot_id:
-            blocks_dict = json.loads(snapshot_id)
-            return self._tester.revert_to_snapshot(blocks_dict)
+            return self._tester.revert_to_snapshot(snapshot_id)
