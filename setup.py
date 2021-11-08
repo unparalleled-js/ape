@@ -10,7 +10,7 @@ extras_require = {
         "hypothesis-jsonschema==0.19.0",  # JSON Schema fuzzer extension
     ],
     "lint": [
-        "black>=21.9b0,<22.0",  # auto-formatter and linter
+        "black>=21.10b0,<22.0",  # auto-formatter and linter
         "mypy>=0.910,<1.0",  # Static type analyzer
         "types-PyYAML",  # NOTE: Needed due to mypy typeshed
         "types-requests",  # NOTE: Needed due to mypy typeshed
@@ -101,7 +101,7 @@ setup(
         "ape_compile",
         "ape_console",
         "ape_ethereum",
-        "ape_http",
+        "ape_geth",
         "ape_networks",
         "ape_plugins",
         "ape_run",
@@ -118,7 +118,7 @@ setup(
         "ape_accounts": ["py.typed"],
         "ape_compile": ["py.typed"],
         "ape_ethereum": ["py.typed"],
-        "ape_http": ["py.typed"],
+        "ape_geth": ["py.typed"],
         "ape_run": ["py.typed"],
         "ape_test": ["py.typed"],
         "ape_pm": ["py.typed"],
