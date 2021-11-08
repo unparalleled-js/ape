@@ -86,8 +86,6 @@ class TransactionError(ContractError):
 
 class VirtualMachineError(TransactionError):
     """
-    Raised when there is either an internal fault in a virtual machine
-    or a contract-defined revert, such as from an assert/require statement.
     Raised when a transaction error occurs in a virtual machine.
     """
 

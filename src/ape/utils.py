@@ -1,12 +1,11 @@
 import collections
 import json
 import os
-import re
 from copy import deepcopy
 from functools import lru_cache
 from hashlib import md5
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping, Optional
 
 import yaml
 from eth_account import Account
@@ -14,7 +13,6 @@ from eth_account.hdaccount import HDPath, seed_from_mnemonic
 from hexbytes import HexBytes
 from importlib_metadata import PackageNotFoundError, packages_distributions, version
 
-from ape.exceptions import OutOfGasError, TransactionError, VirtualMachineError
 from ape.logging import logger
 
 try:
@@ -149,7 +147,7 @@ GeneratedDevAccount = collections.namedtuple("GeneratedDevAccount", ("address", 
 
 
 def generate_dev_accounts(
-    mnemonic,
+    mnemonic: str,
     number_of_accounts: int = 10,
     hd_path_format="m/44'/60'/0'/{}",
 ) -> List[GeneratedDevAccount]:
@@ -170,7 +168,7 @@ def generate_dev_accounts(
     return accounts
 
 
-def get_gas_estimation_revert_error_message(tx_error: Exception) -> str:
+def gas_estimation_error_message(tx_error: Exception) -> str:
     """
     Use this method in ``ProviderAPI`` implementations when error handling
     transaction errors. This is to have a consistent experience across providers.
@@ -181,45 +179,30 @@ def get_gas_estimation_revert_error_message(tx_error: Exception) -> str:
     )
 
 
-def get_tx_error_from_web3_value_error(web3_value_error: ValueError) -> TransactionError:
+def extract_nested_value(root: Mapping, *args: str) -> Optional[Dict]:
     """
-    Returns a custom error from ``ValueError`` from web3.py.
+    Dig through a nested ``Dict`` gives the keys to use in order as arguments.
+    Returns the final value if it exists else `None` if the tree ends at any point.
     """
-    if not hasattr(web3_value_error, "args") or len(web3_value_error.args) < 1:
-        # Not known from provider
-        return TransactionError(base_err=web3_value_error)
+    current_value: Any = root
+    for arg in args:
+        if not isinstance(current_value, dict):
+            return None
 
-    err_data = web3_value_error.args[0]
-    if not isinstance(err_data, dict):
-        return TransactionError(base_err=web3_value_error)
+        current_value = current_value.get(arg)
 
-    message = err_data.get("message", json.dumps(err_data))
-    code = err_data.get("code")
-
-    if re.match(r"(.*)out of gas(.*)", message.lower()):
-        return OutOfGasError(code=code)
-
-    # Try not to raise ``VirtualMachineError`` for any gas-related
-    # issues. This is to keep the ``VirtualMachineError`` more focused
-    # on contract-application specific faults.
-    other_gas_error_patterns = (
-        r"(.*)exceeds \w*?[ ]?gas limit(.*)",
-        r"(.*)requires at least \d* gas(.*)",
-    )
-    for pattern in other_gas_error_patterns:
-        if re.match(pattern, message.lower()):
-            return TransactionError(base_err=web3_value_error, message=message, code=code)
-
-    return VirtualMachineError(message)
+    return current_value
 
 
 __all__ = [
     "cached_property",
     "deep_merge",
     "expand_environment_variables",
+    "extract_nested_value",
+    "get_relative_path",
+    "gas_estimation_error_message",
     "GeneratedDevAccount",
     "generate_dev_accounts",
-    "get_gas_estimation_revert_error_message",
     "load_config",
     "singledispatchmethod",
 ]
