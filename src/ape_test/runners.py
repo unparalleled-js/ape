@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Optional
 
 import pytest
 
@@ -25,14 +25,6 @@ class PytestApeRunner:
         return self.config.getoption("network")
 
     @property
-    def _provider_settings_overrides(self) -> Optional[Dict]:
-        """
-        Override provider settings. This is useful to prevent
-        resource-sharing between x-dist runners.
-        """
-        return None
-
-    @property
     def _provider(self) -> Optional[TestProviderAPI]:
         """
         The active provider. This gets set lazily.
@@ -42,33 +34,42 @@ class PytestApeRunner:
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_protocol(self, item, nextitem):
         snapshot_id = None
-        try:
-            snapshot_id = self._provider.snapshot()
-        except NotImplementedError:
-            if not self._warned_for_missing_features:
-                logger.warning(
-                    "The connected provider does not support snapshotting. "
-                    "Tests will not be completely isolated."
-                )
-                self._warned_for_missing_features = True
-            pass
+
+        # Try to snapshot if the provider supported it.
+        if hasattr(self._provider, "snapshot"):
+            try:
+                snapshot_id = self._provider.snapshot()
+            except NotImplementedError:
+                self._warn_for_unimplemented_snapshot()
+                pass
+        else:
+            self._warn_for_unimplemented_snapshot()
 
         yield
 
+        # Try to revert to the blockchain-state before the test began.
         if snapshot_id:
             self._provider.revert(snapshot_id)
+
+    def _warn_for_unimplemented_snapshot(self):
+        if self._warned_for_missing_features:
+            return
+
+        logger.warning(
+            "The connected provider does not support snapshotting. "
+            "Tests will not be completely isolated."
+        )
+        self._warned_for_missing_features = True
 
     def pytest_sessionstart(self):
         """
         Called after the `Session` object has been created and before performing
         collection and entering the run test loop.
-        * Removes `PytestAssertRewriteWarning` warnings from the terminalreporter.
-          This prevents warnings that "the `brownie` library was already imported and
-          so related assertions cannot be rewritten". The warning is not relevant
-          for end users who are performing tests with brownie, not on ape,
-          so we suppress it to avoid confusion.
-        Removal of pytest warnings must be handled in this hook because session
-        information is passed between xdist workers and master prior to test execution.
+
+        Removes `PytestAssertRewriteWarning` warnings from the terminalreporter.
+        This prevents warnings that "the `ape` library was already imported and
+        so related assertions cannot be rewritten". The warning is not relevant
+        for end users who are performing tests with ape.
         """
         reporter = self.config.pluginmanager.get_plugin("terminalreporter")
         warnings = reporter.stats.pop("warnings", [])
@@ -86,7 +87,7 @@ class PytestApeRunner:
         # Only start provider if collected tests.
         if not outcome.get_result() and session.items and not self.networks.active_provider:
             self.networks.active_provider = self.networks.get_provider_from_choice(
-                self._network_choice, provider_settings=self._provider_settings_overrides
+                self._network_choice
             )
             self.networks.active_provider.connect()
 
