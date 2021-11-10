@@ -1,9 +1,9 @@
-from ape_ethereum.ecosystem import Transaction
+from ape_ethereum.ecosystem import StaticFeeTransaction
 
 
-class TestTransaction:
+class TestPersonalTransaction:
     def test_as_dict_excludes_none_values(self):
-        txn = Transaction()
+        txn = StaticFeeTransaction()
         txn.value = 1000000
         actual = txn.as_dict()
         assert "value" in actual

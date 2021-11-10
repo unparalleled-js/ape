@@ -1,6 +1,6 @@
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Type
+from typing import TYPE_CHECKING, Dict, Iterator, List, Mapping, Optional, Type
 
 from pluggy import PluginManager  # type: ignore
 
@@ -33,7 +33,7 @@ class EcosystemAPI:
     data_folder: Path
     request_header: str
 
-    transaction_class: Type["TransactionAPI"]
+    transaction_class_map: Mapping[str, Type["TransactionAPI"]]
     receipt_class: Type["ReceiptAPI"]
 
     _default_network: str = "development"

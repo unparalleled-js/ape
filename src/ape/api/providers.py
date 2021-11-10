@@ -3,10 +3,8 @@ from pathlib import Path
 from typing import Iterator, List, Optional
 
 from dataclassy import as_dict
-from hexbytes import HexBytes
 from web3 import Web3
 
-from ape.logging import logger
 from ape.types import TransactionSignature
 
 from ..exceptions import ProviderError
@@ -21,10 +19,8 @@ class TransactionAPI:
     sender: str = ""
     receiver: str = ""
     nonce: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
-    value: int = 0
-    gas_limit: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
-    gas_price: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
     data: bytes = b""
+    value: int = 0
 
     signature: Optional[TransactionSignature] = None
 
@@ -33,14 +29,19 @@ class TransactionAPI:
             raise ProviderError("Transaction is not valid.")
 
     @property
+    def max_fee(self):
+        """Override"""
+        return 0
+
+    @property
     def total_transfer_value(self) -> int:
+        return self.value + self.max_fee
+
+    def set_defaults(self, provider: "ProviderAPI"):
         """
-        The total amount of WEI that a transaction could use.
-        Useful for determining if an account balance can afford
-        to submit the transaction.
+        Prepare a transaction, such as setting default values
+        from RCP calls, like ``eth_gasLimit``.
         """
-        # TODO Support EIP-1559
-        return (self.gas_limit or 0) * (self.gas_price or 0) + self.value
 
     @property
     @abstractmethod
@@ -54,7 +55,9 @@ class TransactionAPI:
         """
 
     def as_dict(self) -> dict:
-        return as_dict(self)
+        data = as_dict(self)
+        data.pop("max_fee")
+        return data
 
     def __repr__(self) -> str:
         data = as_dict(self)  # NOTE: `as_dict` could be overridden
@@ -88,19 +91,18 @@ class ReceiptAPI:
     logs: List[dict] = []
     contract_address: Optional[str] = None
 
-    def __post_init__(self):
-        txn_hash = self.txn_hash.hex() if isinstance(self.txn_hash, HexBytes) else self.txn_hash
-        logger.info(f"Submitted {txn_hash} (gas_used={self.gas_used})")
-
-    def __str__(self) -> str:
-        return f"<{self.__class__.__name__} {self.txn_hash}>"
-
     def ran_out_of_gas(self, gas_limit: int) -> bool:
         """
         Returns ``True`` when the transaction failed and used the
         same amount of gas as the given ``gas_limit``.
         """
         return self.status == TransactionStatusEnum.FAILING and self.gas_used == gas_limit
+
+    def raise_for_status(self, txn: TransactionAPI):
+        ...
+
+    def __str__(self) -> str:
+        return f"<{self.__class__.__name__} {self.txn_hash}>"
 
     @classmethod
     @abstractmethod
@@ -157,6 +159,16 @@ class ProviderAPI:
     @property
     @abstractmethod
     def gas_price(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def priority_fee(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def base_fee(self) -> int:
         ...
 
     @abstractmethod
@@ -229,6 +241,18 @@ class Web3Provider(ProviderAPI):
         """
         return self._web3.eth.generate_gas_price()  # type: ignore
 
+    @property
+    def priority_fee(self) -> int:
+        """
+        Returns the current max priority fee per gas in wei.
+        """
+        return self._web3.eth.max_priority_fee
+
+    @property
+    def base_fee(self) -> int:
+        block = self._web3.eth.get_block("latest")
+        return block.base_fee_per_gas
+
     def get_nonce(self, address: str) -> int:
         """
         Returns the number of transactions sent from an address.
@@ -260,6 +284,7 @@ class Web3Provider(ProviderAPI):
         """
         # TODO: Work on API that let's you work with ReceiptAPI and re-send transactions
         receipt = self._web3.eth.wait_for_transaction_receipt(txn_hash)  # type: ignore
+        breakpoint()
         txn = self._web3.eth.get_transaction(txn_hash)  # type: ignore
         return self.network.ecosystem.receipt_class.decode({**txn, **receipt})
 

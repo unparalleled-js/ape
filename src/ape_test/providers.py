@@ -35,6 +35,16 @@ class LocalNetwork(TestProviderAPI):
         # NOTE: Test chain doesn't care about gas prices
         return 0
 
+    @property
+    def priority_fee(self) -> int:
+        # NOTE: Test chain doesn't care about priority fees
+        return 0
+
+    @property
+    def base_fee(self) -> int:
+        # NOTE: Test chain doesn't care about base fees
+        return 0
+
     def get_nonce(self, address: str) -> int:
         return self._web3.eth.get_transaction_count(address)  # type: ignore
 
