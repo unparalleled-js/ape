@@ -1,6 +1,5 @@
 from ape import plugins
 from ape.api.config import ConfigItem
-from ape_test.accounts import TestAccount, TestAccountContainer
 
 from .accounts import TestAccount, TestAccountContainer
 from .providers import LocalNetwork

@@ -19,8 +19,7 @@ from ape.api import (
     TransactionAPI,
     TransactionStatusEnum,
 )
-from ape.exceptions import DecodingError, OutOfGasError, SignatureError
-from ape.logging import logger
+from ape.exceptions import DecodingError, OutOfGasError, SignatureError, TransactionError
 from ape.types import ABI, AddressType
 
 NETWORKS = {
@@ -34,6 +33,8 @@ NETWORKS = {
 
 
 class BaseTransaction(TransactionAPI):
+    type: str = None  # type: ignore
+
     def set_defaults(self, provider: ProviderAPI):
         if self.gas_limit is None:
             self.gas_limit = provider.estimate_gas_cost(self)
@@ -92,6 +93,7 @@ class StaticFeeTransaction(BaseTransaction):
     """
 
     gas_price: Optional[int] = None  # Defaults to provider.gas_price
+    type: str = "0x0"
 
     @property
     def max_fee(self) -> int:
@@ -119,6 +121,7 @@ class DynamicFeeTransaction(BaseTransaction):
 
     max_fee: Optional[int] = None
     max_priority_fee: Optional[int] = None
+    type: str = "0x2"
 
     def set_defaults(self, provider: ProviderAPI):
         if self.max_priority_fee is None:
@@ -138,15 +141,6 @@ class DynamicFeeTransaction(BaseTransaction):
 
 
 class Receipt(ReceiptAPI):
-    """
-    Use this transaction if you want the benefits of a better fee model
-    and your network supports EIP-1559.
-    """
-
-    def __post_init__(self):
-        txn_hash = self.txn_hash.hex() if isinstance(self.txn_hash, HexBytes) else self.txn_hash
-        logger.info(f"Submitted {txn_hash} (gas_used={self.gas_used})")
-
     def raise_for_status(self, txn: TransactionAPI):
         if not isinstance(txn, BaseTransaction):
             return
@@ -154,6 +148,9 @@ class Receipt(ReceiptAPI):
         gas_limit = txn.gas_limit
         if gas_limit and self.ran_out_of_gas(gas_limit):
             raise OutOfGasError()
+
+        elif self.status == TransactionStatusEnum.NO_ERROR:
+            raise TransactionError(message=f"Transaction '{self.txn_hash}' failed.")
 
     @classmethod
     def decode(cls, data: dict) -> ReceiptAPI:
@@ -169,7 +166,11 @@ class Receipt(ReceiptAPI):
 
 
 class Ethereum(EcosystemAPI):
-    transaction_class_map = {"0": StaticFeeTransaction, "1": DynamicFeeTransaction}
+    transaction_class_map = {
+        "0x0": StaticFeeTransaction,
+        "0x1": DynamicFeeTransaction,
+        "0x2": DynamicFeeTransaction,
+    }
     receipt_class = Receipt
 
     def encode_calldata(self, abi: ABI, *args) -> bytes:
@@ -191,7 +192,8 @@ class Ethereum(EcosystemAPI):
     def encode_deployment(
         self, deployment_bytecode: bytes, abi: Optional[ABI], *args, **kwargs
     ) -> BaseTransaction:
-        txn_type = StaticFeeTransaction if "gas_price" in kwargs else DynamicFeeTransaction
+        txn_type_code = "0x0" if "gas_limit" in kwargs else "0x2"
+        txn_type = self.transaction_class_map[txn_type_code]
         txn = txn_type(**kwargs)  # type: ignore
         txn.data = deployment_bytecode
 
@@ -208,7 +210,8 @@ class Ethereum(EcosystemAPI):
         *args,
         **kwargs,
     ) -> BaseTransaction:
-        txn_type = StaticFeeTransaction if "gas_price" in kwargs else DynamicFeeTransaction
+        txn_type_code = "0x0" if "gas_price" in kwargs else "0x2"
+        txn_type = self.transaction_class_map[txn_type_code]
         txn = txn_type(receiver=address, **kwargs)  # type: ignore
 
         # Add method ID

@@ -3,11 +3,13 @@ from pathlib import Path
 from typing import Iterator, List, Optional
 
 from dataclassy import as_dict
+from hexbytes import HexBytes
 from web3 import Web3
 
 from ape.types import TransactionSignature
 
 from ..exceptions import ProviderError
+from ..logging import logger
 from . import networks
 from .base import abstractdataclass, abstractmethod
 from .config import ConfigItem
@@ -22,6 +24,7 @@ class TransactionAPI:
     gas_limit: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
     data: bytes = b""
     value: int = 0
+    type: str = ""
 
     signature: Optional[TransactionSignature] = None
 
@@ -31,7 +34,13 @@ class TransactionAPI:
 
     @property
     def max_fee(self):
-        """Override"""
+        """
+        The total amount in fees willing to be spent on a transaction.
+        Override this property as needed, such as for EIP-1559 differences.
+
+        See :class:`~ape_ethereum.ecosystem.StaticFeeTransaction` and
+        :class`~ape_ethereum.ecosystem.DynamicFeeTransaction` as examples.
+        """
         return 0
 
     @property
@@ -40,9 +49,10 @@ class TransactionAPI:
 
     def set_defaults(self, provider: "ProviderAPI"):
         """
-        Prepare a transaction, such as setting default values
-        from RCP calls, like ``eth_gasLimit``.
+        Set default values in a transaction with the help of the given provider,
+        such as setting the `gas_limit` from an RPC call to ``eth_gasLimit``.
         """
+        return self.value + self.max_fee
 
     @property
     @abstractmethod
@@ -90,18 +100,25 @@ class ReceiptAPI:
     logs: List[dict] = []
     contract_address: Optional[str] = None
 
+    def __post_init__(self):
+        txn_hash = self.txn_hash.hex() if isinstance(self.txn_hash, HexBytes) else self.txn_hash
+        logger.info(f"Submitted {txn_hash} (gas_used={self.gas_used})")
+
+    def raise_for_status(self, txn: TransactionAPI):
+        """
+        Handle provider-specific errors regarding a non-successful
+        :class:`~api.providers.TransactionStatusEnum`.
+        """
+
+    def __str__(self) -> str:
+        return f"<{self.__class__.__name__} {self.txn_hash}>"
+
     def ran_out_of_gas(self, gas_limit: int) -> bool:
         """
         Returns ``True`` when the transaction failed and used the
         same amount of gas as the given ``gas_limit``.
         """
         return self.status == TransactionStatusEnum.FAILING and self.gas_used == gas_limit
-
-    def raise_for_status(self, txn: TransactionAPI):
-        ...
-
-    def __str__(self) -> str:
-        return f"<{self.__class__.__name__} {self.txn_hash}>"
 
     @classmethod
     @abstractmethod
@@ -250,7 +267,7 @@ class Web3Provider(ProviderAPI):
     @property
     def base_fee(self) -> int:
         block = self._web3.eth.get_block("latest")
-        return block.baseFeePerGas
+        return block.baseFeePerGas  # type: ignore
 
     def get_nonce(self, address: str) -> int:
         """

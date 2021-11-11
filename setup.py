@@ -88,6 +88,7 @@ setup(
         "IPython>=7.25",
         "pytest>=6.0,<7.0",
         "web3>=5.24.0",
+        "web3[tester]>=5.24.0,<6.0.0",
     ],
     entry_points={
         "console_scripts": ["ape=ape._cli:cli"],

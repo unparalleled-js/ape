@@ -58,7 +58,7 @@ class AccountAPI(AddressAPI):
         if txn.nonce is None:
             txn.nonce = self.nonce
         elif txn.nonce < self.nonce:
-            raise TransactionError(message="Invalid nonce, will not publish.")
+            raise AccountsError("Invalid nonce, will not publish.")
 
         txn.set_defaults(self.provider)
         if send_everything:
