@@ -24,6 +24,7 @@ class TransactionAPI:
     value: int = 0
     gas_limit: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
     data: bytes = b""
+    type: str = ""
 
     signature: Optional[TransactionSignature] = None
 

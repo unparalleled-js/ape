@@ -33,6 +33,8 @@ NETWORKS = {
 
 
 class BaseTransaction(TransactionAPI):
+    type: str = None  # type: ignore
+
     def set_defaults(self, provider: ProviderAPI):
         if self.gas_limit is None:
             self.gas_limit = provider.estimate_gas_cost(self)
@@ -91,6 +93,7 @@ class StaticFeeTransaction(BaseTransaction):
     """
 
     gas_price: Optional[int] = None  # Defaults to provider.gas_price
+    type: str = "0x0"
 
     @property
     def max_fee(self) -> int:
@@ -118,6 +121,7 @@ class DynamicFeeTransaction(BaseTransaction):
 
     max_fee: Optional[int] = None
     max_priority_fee: Optional[int] = None
+    type: str = "0x2"
 
     def set_defaults(self, provider: ProviderAPI):
         if self.max_priority_fee is None:
@@ -161,7 +165,11 @@ class Receipt(ReceiptAPI):
 
 
 class Ethereum(EcosystemAPI):
-    transaction_class_map = {"0": StaticFeeTransaction, "1": DynamicFeeTransaction}
+    transaction_class_map = {
+        "0x0": StaticFeeTransaction,
+        "0x1": DynamicFeeTransaction,
+        "0x2": DynamicFeeTransaction,
+    }
     receipt_class = Receipt
 
     def encode_calldata(self, abi: ABI, *args) -> bytes:
@@ -183,7 +191,8 @@ class Ethereum(EcosystemAPI):
     def encode_deployment(
         self, deployment_bytecode: bytes, abi: Optional[ABI], *args, **kwargs
     ) -> BaseTransaction:
-        txn_type = StaticFeeTransaction if "gas_price" in kwargs else DynamicFeeTransaction
+        txn_type_code = "0x0" if "gas_limit" in kwargs else "0x2"
+        txn_type = self.transaction_class_map[txn_type_code]
         txn = txn_type(**kwargs)  # type: ignore
         txn.data = deployment_bytecode
 
@@ -200,7 +209,8 @@ class Ethereum(EcosystemAPI):
         *args,
         **kwargs,
     ) -> BaseTransaction:
-        txn_type = StaticFeeTransaction if "gas_price" in kwargs else DynamicFeeTransaction
+        txn_type_code = "0x0" if "gas_price" in kwargs else "0x2"
+        txn_type = self.transaction_class_map[txn_type_code]
         txn = txn_type(receiver=address, **kwargs)  # type: ignore
 
         # Add method ID
