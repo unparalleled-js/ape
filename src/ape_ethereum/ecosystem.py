@@ -161,9 +161,9 @@ class Receipt(ReceiptAPI):
         gas_limit = txn.gas_limit
         if gas_limit and self.ran_out_of_gas(gas_limit):
             raise OutOfGasError()
-        elif self.status == TransactionStatusEnum.NO_ERROR:
-            pretty_hash = HexBytes(self.txn_hash).hex()
-            raise TransactionError(message=f"Transaction '{pretty_hash}' failed.")
+        elif self.status != TransactionStatusEnum.NO_ERROR:
+            txn_hash = HexBytes(self.txn_hash).hex()
+            raise TransactionError(message=f"Transaction '{txn_hash}' failed.")
 
     @classmethod
     def decode(cls, data: dict) -> ReceiptAPI:
