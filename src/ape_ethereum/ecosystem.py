@@ -237,7 +237,7 @@ class Ethereum(EcosystemAPI):
     def _extract_transaction_type(self, **kwargs) -> Type[TransactionAPI]:
         if "type" in kwargs:
             txn_type_code = kwargs["type"]
-        elif "gas_limit" in kwargs:
+        elif "gas_price" in kwargs:
             txn_type_code = "0x0"
         else:
             txn_type_code = "0x2"
