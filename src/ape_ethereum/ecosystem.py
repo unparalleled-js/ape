@@ -105,7 +105,9 @@ class StaticFeeTransaction(BaseTransaction):
 
     def as_dict(self):
         data = super().as_dict()
-        data["gasPrice"] = data.pop("gas_price")
+        if "gas_price" in data:
+            data["gasPrice"] = data.pop("gas_price")
+
         return data
 
 
@@ -123,13 +125,15 @@ class DynamicFeeTransaction(BaseTransaction):
             self.max_priority_fee = provider.priority_fee
 
         self.max_fee = provider.base_fee + self.max_priority_fee
-        breakpoint()
         super().set_defaults(provider)
 
     def as_dict(self):
         data = super().as_dict()
-        data["maxFeePerGas"] = data.pop("max_fee")
-        data["maxPriorityFeePerGas"] = data.pop("max_priority_fee")
+        if "max_fee" in data:
+            data["maxFeePerGas"] = data.pop("max_fee")
+        if "max_priority_fee" in data:
+            data["maxPriorityFeePerGas"] = data.pop("max_priority_fee")
+
         return data
 
 
@@ -204,7 +208,7 @@ class Ethereum(EcosystemAPI):
         *args,
         **kwargs,
     ) -> BaseTransaction:
-        txn_type = DynamicFeeTransaction if "max_priority_fee" in kwargs else StaticFeeTransaction
+        txn_type = StaticFeeTransaction if "gas_price" in kwargs else DynamicFeeTransaction
         txn = txn_type(receiver=address, **kwargs)  # type: ignore
 
         # Add method ID
