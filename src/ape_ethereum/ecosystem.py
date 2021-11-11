@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 from eth_abi import decode_abi as abi_decode
 from eth_abi import encode_abi as abi_encode
@@ -114,6 +114,8 @@ class StaticFeeTransaction(BaseTransaction):
         if "gas_price" in data:
             data["gasPrice"] = data.pop("gas_price")
 
+        data.pop("type")
+
         return data
 
 
@@ -160,7 +162,8 @@ class Receipt(ReceiptAPI):
         if gas_limit and self.ran_out_of_gas(gas_limit):
             raise OutOfGasError()
         elif self.status == TransactionStatusEnum.NO_ERROR:
-            raise TransactionError(message=f"Transaction '{self.txn_hash}' failed.")
+            pretty_hash = HexBytes(self.txn_hash).hex()
+            raise TransactionError(message=f"Transaction '{pretty_hash}' failed.")
 
     @classmethod
     def decode(cls, data: dict) -> ReceiptAPI:
@@ -202,8 +205,7 @@ class Ethereum(EcosystemAPI):
     def encode_deployment(
         self, deployment_bytecode: bytes, abi: Optional[ABI], *args, **kwargs
     ) -> BaseTransaction:
-        txn_type_code = "0x0" if "gas_limit" in kwargs else "0x2"
-        txn_type = self.transaction_class_map[txn_type_code]
+        txn_type = self._extract_transaction_type(**kwargs)
         txn = txn_type(**kwargs)  # type: ignore
         txn.data = deployment_bytecode
 
@@ -211,7 +213,7 @@ class Ethereum(EcosystemAPI):
         if abi:
             txn.data += self.encode_calldata(abi, *args)
 
-        return txn
+        return txn  # type: ignore
 
     def encode_transaction(
         self,
@@ -220,15 +222,24 @@ class Ethereum(EcosystemAPI):
         *args,
         **kwargs,
     ) -> BaseTransaction:
-        txn_type_code = "0x0" if "gas_price" in kwargs else "0x2"
-        txn_type = self.transaction_class_map[txn_type_code]
+        txn_type = self._extract_transaction_type(**kwargs)
         txn = txn_type(receiver=address, **kwargs)  # type: ignore
 
         # Add method ID
         txn.data = keccak(to_bytes(text=abi.selector))[:4]
         txn.data += self.encode_calldata(abi, *args)
 
-        return txn
+        return txn  # type: ignore
+
+    def _extract_transaction_type(self, **kwargs) -> Type[TransactionAPI]:
+        if "type" in kwargs:
+            txn_type_code = kwargs["type"]
+        elif "gas_limit" in kwargs:
+            txn_type_code = "0x0"
+        else:
+            txn_type_code = "0x2"
+
+        return self.transaction_class_map[txn_type_code]
 
     def decode_event(self, abi: ABI, receipt: "ReceiptAPI") -> "ContractLog":
         filter_id = keccak(to_bytes(text=abi.selector))
