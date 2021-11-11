@@ -34,8 +34,6 @@ NETWORKS = {
 
 
 class BaseTransaction(TransactionAPI):
-    gas_limit: Optional[int] = None
-
     def set_defaults(self, provider: ProviderAPI):
         if self.gas_limit is None:
             self.gas_limit = provider.estimate_gas_cost(self)
