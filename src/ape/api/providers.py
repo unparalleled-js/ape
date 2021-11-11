@@ -55,9 +55,7 @@ class TransactionAPI:
         """
 
     def as_dict(self) -> dict:
-        data = as_dict(self)
-        data.pop("max_fee")
-        return data
+        return as_dict(self)
 
     def __repr__(self) -> str:
         data = as_dict(self)  # NOTE: `as_dict` could be overridden
@@ -251,7 +249,7 @@ class Web3Provider(ProviderAPI):
     @property
     def base_fee(self) -> int:
         block = self._web3.eth.get_block("latest")
-        return block.base_fee_per_gas
+        return block.baseFeePerGas
 
     def get_nonce(self, address: str) -> int:
         """
@@ -284,7 +282,6 @@ class Web3Provider(ProviderAPI):
         """
         # TODO: Work on API that let's you work with ReceiptAPI and re-send transactions
         receipt = self._web3.eth.wait_for_transaction_receipt(txn_hash)  # type: ignore
-        breakpoint()
         txn = self._web3.eth.get_transaction(txn_hash)  # type: ignore
         return self.network.ecosystem.receipt_class.decode({**txn, **receipt})
 
