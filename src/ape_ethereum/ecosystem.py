@@ -133,7 +133,10 @@ class DynamicFeeTransaction(BaseTransaction):
         if self.max_priority_fee is None:
             self.max_priority_fee = provider.priority_fee
 
-        self.max_fee = provider.base_fee + self.max_priority_fee
+        if self.max_fee is None:
+            self.max_fee = provider.base_fee + self.max_priority_fee
+        # else: Assume user specified the correct amount or txn will fail and waste gas
+
         super().set_defaults(provider)
 
     def as_dict(self):
