@@ -21,9 +21,9 @@ class TransactionAPI:
     sender: str = ""
     receiver: str = ""
     nonce: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
+    value: int = 0
     gas_limit: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
     data: bytes = b""
-    value: int = 0
     type: str = ""
 
     signature: Optional[TransactionSignature] = None
@@ -45,6 +45,11 @@ class TransactionAPI:
 
     @property
     def total_transfer_value(self) -> int:
+        """
+        The total amount of WEI that a transaction could use.
+        Useful for determining if an account balance can afford
+        to submit the transaction.
+        """
         return self.value + self.max_fee
 
     def set_defaults(self, provider: "ProviderAPI"):
@@ -52,7 +57,6 @@ class TransactionAPI:
         Set default values in a transaction with the help of the given provider,
         such as setting the `gas_limit` from an RPC call to ``eth_gasLimit``.
         """
-        return self.value + self.max_fee
 
     @property
     @abstractmethod

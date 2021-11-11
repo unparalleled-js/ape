@@ -10,7 +10,7 @@ from ape.types import (
 )
 from ape.utils import cached_property
 
-from ..exceptions import AccountsError, AliasAlreadyInUseError, SignatureError, TransactionError
+from ..exceptions import AccountsError, AliasAlreadyInUseError, SignatureError
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
@@ -65,8 +65,8 @@ class AccountAPI(AddressAPI):
             txn.value = self.balance - txn.max_fee
 
         if txn.total_transfer_value > self.balance:
-            raise TransactionError(
-                message="Transfer value meets or exceeds account balance.\n"
+            raise AccountsError(
+                "Transfer value meets or exceeds account balance.\n"
                 "Are you using the correct provider/account combination?\n"
                 f"(transfer_value={txn.total_transfer_value}, balance={self.balance})."
             )
