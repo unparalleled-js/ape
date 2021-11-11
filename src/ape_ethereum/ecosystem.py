@@ -123,6 +123,7 @@ class DynamicFeeTransaction(BaseTransaction):
             self.max_priority_fee = provider.priority_fee
 
         self.max_fee = provider.base_fee + self.max_priority_fee
+        breakpoint()
         super().set_defaults(provider)
 
     def as_dict(self):

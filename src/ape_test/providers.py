@@ -9,7 +9,7 @@ from ape.api import ReceiptAPI, TestProviderAPI, TransactionAPI
 from ape.exceptions import ContractLogicError, OutOfGasError, VirtualMachineError
 
 
-class LocalNetwork(TestProviderAPI):
+class LocalNetwork(TestProviderAPI, Web3Provider):
     _web3: Web3 = None  # type: ignore
 
     def connect(self):
@@ -43,13 +43,15 @@ class LocalNetwork(TestProviderAPI):
 
     @property
     def priority_fee(self) -> int:
-        # NOTE: Test chain doesn't care about priority fees
-        return 0
+        """
+        Returns the current max priority fee per gas in wei.
+        """
+        return self._web3.eth.max_priority_fee
 
     @property
     def base_fee(self) -> int:
-        # NOTE: Test chain doesn't care about base fees
-        return 0
+        block = self._web3.eth.get_block("latest")
+        return block.baseFeePerGas
 
     def get_nonce(self, address: str) -> int:
         return self._web3.eth.get_transaction_count(address)  # type: ignore
@@ -64,6 +66,7 @@ class LocalNetwork(TestProviderAPI):
         data = txn.as_dict()
         if "gas" not in data or data["gas"] == 0:
             data["gas"] = int(1e12)
+
         return self._web3.eth.call(data)
 
     def get_transaction(self, txn_hash: str) -> ReceiptAPI:
