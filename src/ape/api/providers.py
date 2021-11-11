@@ -108,14 +108,14 @@ class ReceiptAPI:
         txn_hash = self.txn_hash.hex() if isinstance(self.txn_hash, HexBytes) else self.txn_hash
         logger.info(f"Submitted {txn_hash} (gas_used={self.gas_used})")
 
+    def __str__(self) -> str:
+        return f"<{self.__class__.__name__} {self.txn_hash}>"
+
     def raise_for_status(self, txn: TransactionAPI):
         """
         Handle provider-specific errors regarding a non-successful
         :class:`~api.providers.TransactionStatusEnum`.
         """
-
-    def __str__(self) -> str:
-        return f"<{self.__class__.__name__} {self.txn_hash}>"
 
     def ran_out_of_gas(self, gas_limit: int) -> bool:
         """
