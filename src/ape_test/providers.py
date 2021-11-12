@@ -22,6 +22,7 @@ class LocalNetwork(TestProviderAPI, Web3Provider):
         self._web3 = Web3(EthereumTesterProvider(ethereum_tester=self._tester))
 
     def estimate_gas_cost(self, txn: TransactionAPI) -> int:
+
         try:
             return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
         except TransactionFailed as err:

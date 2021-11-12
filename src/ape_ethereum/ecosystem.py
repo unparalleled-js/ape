@@ -1,4 +1,4 @@
-from typing import Any, Optional, Type
+from typing import Any, Optional, Tuple, Type
 
 from eth_abi import decode_abi as abi_decode
 from eth_abi import encode_abi as abi_encode
@@ -208,7 +208,7 @@ class Ethereum(EcosystemAPI):
     def encode_deployment(
         self, deployment_bytecode: bytes, abi: Optional[ABI], *args, **kwargs
     ) -> BaseTransaction:
-        txn_type = self._extract_transaction_type(**kwargs)
+        kwargs["type"], txn_type = self._extract_transaction_type(**kwargs)
         txn = txn_type(**kwargs)  # type: ignore
         txn.data = deployment_bytecode
 
@@ -225,7 +225,7 @@ class Ethereum(EcosystemAPI):
         *args,
         **kwargs,
     ) -> BaseTransaction:
-        txn_type = self._extract_transaction_type(**kwargs)
+        kwargs["type"], txn_type = self._extract_transaction_type(**kwargs)
         txn = txn_type(receiver=address, **kwargs)  # type: ignore
 
         # Add method ID
@@ -234,15 +234,18 @@ class Ethereum(EcosystemAPI):
 
         return txn  # type: ignore
 
-    def _extract_transaction_type(self, **kwargs) -> Type[TransactionAPI]:
+    def _extract_transaction_type(self, **kwargs) -> Tuple[str, Type[TransactionAPI]]:
         if "type" in kwargs:
             txn_type_code = kwargs["type"]
+            # Allows non 0x-prefixed transaction type IDs
+            if not txn_type_code.startswith("0x"):
+                txn_type_code = kwargs["type"] = f"0x{txn_type_code}"
         elif "gas_price" in kwargs:
             txn_type_code = "0x0"
         else:
             txn_type_code = "0x2"
 
-        return self.transaction_class_map[txn_type_code]
+        return txn_type_code, self.transaction_class_map[txn_type_code]
 
     def decode_event(self, abi: ABI, receipt: "ReceiptAPI") -> "ContractLog":
         filter_id = keccak(to_bytes(text=abi.selector))
