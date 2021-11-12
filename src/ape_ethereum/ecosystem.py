@@ -236,7 +236,7 @@ class Ethereum(EcosystemAPI):
 
     def _extract_transaction_type(self, **kwargs) -> Tuple[str, Type[TransactionAPI]]:
         if "type" in kwargs:
-            txn_type_code = kwargs["type"]
+            txn_type_code = str(kwargs["type"])
             # Allows non 0x-prefixed transaction type IDs
             if not txn_type_code.startswith("0x"):
                 txn_type_code = kwargs["type"] = f"0x{txn_type_code}"
