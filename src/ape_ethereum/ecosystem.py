@@ -184,7 +184,6 @@ class Receipt(ReceiptAPI):
 class Ethereum(EcosystemAPI):
     transaction_class_map = {
         "0x0": StaticFeeTransaction,
-        "0x1": DynamicFeeTransaction,
         "0x2": DynamicFeeTransaction,
     }
     receipt_class = Receipt
