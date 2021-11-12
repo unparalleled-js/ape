@@ -8,7 +8,7 @@ from eth_account._utils.legacy_transactions import (
     encode_transaction,
     serializable_unsigned_transaction_from_dict,
 )
-from eth_utils import keccak, to_bytes, to_int
+from eth_utils import add_0x_prefix, keccak, to_bytes, to_int
 from hexbytes import HexBytes
 
 from ape.api import (
@@ -235,10 +235,8 @@ class Ethereum(EcosystemAPI):
 
     def _extract_transaction_type(self, **kwargs) -> Tuple[str, Type[TransactionAPI]]:
         if "type" in kwargs:
-            txn_type_code = str(kwargs["type"])
-            # Allows non 0x-prefixed transaction type IDs
-            if not txn_type_code.startswith("0x"):
-                txn_type_code = kwargs["type"] = f"0x{txn_type_code}"
+            type_val = str(kwargs["type"])
+            txn_type_code = add_0x_prefix(type_val)
         elif "gas_price" in kwargs:
             txn_type_code = "0x0"
         else:
