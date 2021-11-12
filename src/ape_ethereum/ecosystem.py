@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, Type
 
 from eth_abi import decode_abi as abi_decode
 from eth_abi import encode_abi as abi_encode
@@ -11,8 +11,15 @@ from eth_account._utils.legacy_transactions import (
 from eth_utils import keccak, to_bytes, to_int
 from hexbytes import HexBytes
 
-from ape.api import ContractLog, EcosystemAPI, ReceiptAPI, TransactionAPI, TransactionStatusEnum
-from ape.exceptions import DecodingError, SignatureError
+from ape.api import (
+    ContractLog,
+    EcosystemAPI,
+    ProviderAPI,
+    ReceiptAPI,
+    TransactionAPI,
+    TransactionStatusEnum,
+)
+from ape.exceptions import DecodingError, OutOfGasError, SignatureError, TransactionError
 from ape.types import ABI, AddressType
 
 NETWORKS = {
@@ -25,8 +32,18 @@ NETWORKS = {
 }
 
 
-# TODO: Fix this to add support for TypedTransaction
-class Transaction(TransactionAPI):
+class BaseTransaction(TransactionAPI):
+    type: str = None  # type: ignore
+
+    def set_defaults(self, provider: ProviderAPI):
+        """
+        Sets ``gas_limit`` if it is None.
+        Sub-classes should likely should call this method.
+        """
+        if self.gas_limit is None:
+            self.gas_limit = provider.estimate_gas_cost(self)
+        # else: Assume user specified the correct amount or txn will fail and waste gas
+
     def is_valid(self) -> bool:
         return False
 
@@ -47,7 +64,6 @@ class Transaction(TransactionAPI):
             data["from"] = sender
 
         data["gas"] = data.pop("gas_limit")
-        data["gasPrice"] = data.pop("gas_price")
 
         # NOTE: Don't include signature
         data.pop("signature")
@@ -75,7 +91,83 @@ class Transaction(TransactionAPI):
         return signed_txn
 
 
+class StaticFeeTransaction(BaseTransaction):
+    """
+    Transactions that are pre-EIP-1559 and use the ``gasPrice`` field.
+    """
+
+    gas_price: Optional[int] = None  # Defaults to provider.gas_price
+    type: str = "0x0"
+
+    @property
+    def max_fee(self) -> int:
+        return (self.gas_limit or 0) * (self.gas_price or 0)
+
+    def set_defaults(self, provider: ProviderAPI):
+        if self.gas_price is None:
+            self.gas_price = provider.gas_price
+
+        super().set_defaults(provider)
+
+    def as_dict(self):
+        data = super().as_dict()
+        if "gas_price" in data:
+            data["gasPrice"] = data.pop("gas_price")
+
+        data.pop("type")
+
+        return data
+
+
+class DynamicFeeTransaction(BaseTransaction):
+    """
+    Transactions that are post-EIP-1559 and use the ``maxFeePerGas``
+    and ``maxPriorityFeePerGas`` fields.
+    """
+
+    max_fee: Optional[int] = None
+    max_priority_fee: Optional[int] = None
+    type: str = "0x2"
+
+    def set_defaults(self, provider: ProviderAPI):
+        if self.max_priority_fee is None:
+            self.max_priority_fee = provider.priority_fee
+
+        if self.max_fee is None:
+            self.max_fee = provider.base_fee + self.max_priority_fee
+        # else: Assume user specified the correct amount or txn will fail and waste gas
+
+        super().set_defaults(provider)
+
+    def as_dict(self):
+        data = super().as_dict()
+        if "max_fee" in data:
+            data["maxFeePerGas"] = data.pop("max_fee")
+        if "max_priority_fee" in data:
+            data["maxPriorityFeePerGas"] = data.pop("max_priority_fee")
+
+        return data
+
+
 class Receipt(ReceiptAPI):
+    def raise_for_status(self, txn: TransactionAPI):
+        """
+        Raises :class`~ape.exceptions.OutOfGasError` when the
+        transaction failed and consumed all the gas.
+
+        Raises :class:`~ape.exceptions.TransactionError`
+        when the transaction has a failing status otherwise.
+        """
+        if not isinstance(txn, BaseTransaction):
+            return
+
+        gas_limit = txn.gas_limit
+        if gas_limit and self.ran_out_of_gas(gas_limit):
+            raise OutOfGasError()
+        elif self.status != TransactionStatusEnum.NO_ERROR:
+            txn_hash = HexBytes(self.txn_hash).hex()
+            raise TransactionError(message=f"Transaction '{txn_hash}' failed.")
+
     @classmethod
     def decode(cls, data: dict) -> ReceiptAPI:
         return cls(  # type: ignore
@@ -90,7 +182,11 @@ class Receipt(ReceiptAPI):
 
 
 class Ethereum(EcosystemAPI):
-    transaction_class = Transaction
+    transaction_class_map = {
+        "0x0": StaticFeeTransaction,
+        "0x1": DynamicFeeTransaction,
+        "0x2": DynamicFeeTransaction,
+    }
     receipt_class = Receipt
 
     def encode_calldata(self, abi: ABI, *args) -> bytes:
@@ -111,15 +207,16 @@ class Ethereum(EcosystemAPI):
 
     def encode_deployment(
         self, deployment_bytecode: bytes, abi: Optional[ABI], *args, **kwargs
-    ) -> Transaction:
-        txn = Transaction(**kwargs)  # type: ignore
+    ) -> BaseTransaction:
+        kwargs["type"], txn_type = self._extract_transaction_type(**kwargs)
+        txn = txn_type(**kwargs)  # type: ignore
         txn.data = deployment_bytecode
 
         # Encode args, if there are any
         if abi:
             txn.data += self.encode_calldata(abi, *args)
 
-        return txn
+        return txn  # type: ignore
 
     def encode_transaction(
         self,
@@ -127,14 +224,28 @@ class Ethereum(EcosystemAPI):
         abi: ABI,
         *args,
         **kwargs,
-    ) -> Transaction:
-        txn = Transaction(receiver=address, **kwargs)  # type: ignore
+    ) -> BaseTransaction:
+        kwargs["type"], txn_type = self._extract_transaction_type(**kwargs)
+        txn = txn_type(receiver=address, **kwargs)  # type: ignore
 
         # Add method ID
         txn.data = keccak(to_bytes(text=abi.selector))[:4]
         txn.data += self.encode_calldata(abi, *args)
 
-        return txn
+        return txn  # type: ignore
+
+    def _extract_transaction_type(self, **kwargs) -> Tuple[str, Type[TransactionAPI]]:
+        if "type" in kwargs:
+            txn_type_code = kwargs["type"]
+            # Allows non 0x-prefixed transaction type IDs
+            if not txn_type_code.startswith("0x"):
+                txn_type_code = kwargs["type"] = f"0x{txn_type_code}"
+        elif "gas_price" in kwargs:
+            txn_type_code = "0x0"
+        else:
+            txn_type_code = "0x2"
+
+        return txn_type_code, self.transaction_class_map[txn_type_code]
 
     def decode_event(self, abi: ABI, receipt: "ReceiptAPI") -> "ContractLog":
         filter_id = keccak(to_bytes(text=abi.selector))
