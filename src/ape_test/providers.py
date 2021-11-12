@@ -21,8 +21,12 @@ class LocalNetwork(TestProviderAPI, Web3Provider):
         self._tester = PyEVMBackend.from_mnemonic(self.config["mnemonic"])
         self._web3 = Web3(EthereumTesterProvider(ethereum_tester=self._tester))
 
-    def estimate_gas_cost(self, txn: TransactionAPI) -> int:
+    @property
+    def gas_price(self) -> int:
+        """Returns 0 because test chains do not care about gas prices."""
+        return self.base_fee + 1
 
+    def estimate_gas_cost(self, txn: TransactionAPI) -> int:
         try:
             return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
         except TransactionFailed as err:
