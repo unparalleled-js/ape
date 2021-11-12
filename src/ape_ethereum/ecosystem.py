@@ -235,14 +235,14 @@ class Ethereum(EcosystemAPI):
 
     def _extract_transaction_type(self, **kwargs) -> Tuple[str, Type[TransactionAPI]]:
         if "type" in kwargs:
-            type_val = str(kwargs["type"])
-            txn_type_code = add_0x_prefix(type_val)
+            type_arg = str(kwargs["type"])
+            version = add_0x_prefix(type_arg)
         elif "gas_price" in kwargs:
-            txn_type_code = "0x0"
+            version = "0x0"
         else:
-            txn_type_code = "0x2"
+            version = "0x2"
 
-        return txn_type_code, self.transaction_class_map[txn_type_code]
+        return version, self.transaction_class_map[version]
 
     def decode_event(self, abi: ABI, receipt: "ReceiptAPI") -> "ContractLog":
         filter_id = keccak(to_bytes(text=abi.selector))
