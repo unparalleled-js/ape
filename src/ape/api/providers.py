@@ -33,7 +33,7 @@ class TransactionAPI:
             raise ProviderError("Transaction is not valid.")
 
     @property
-    def max_fee(self):
+    def max_fee(self) -> int:
         """
         The total amount in fees willing to be spent on a transaction.
         Override this property as needed, such as for EIP-1559 differences.
