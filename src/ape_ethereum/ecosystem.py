@@ -8,6 +8,7 @@ from eth_account._utils.legacy_transactions import (
     encode_transaction,
     serializable_unsigned_transaction_from_dict,
 )
+from eth_typing import HexStr
 from eth_utils import add_0x_prefix, keccak, to_bytes, to_int
 from hexbytes import HexBytes
 
@@ -235,8 +236,8 @@ class Ethereum(EcosystemAPI):
 
     def _extract_transaction_type(self, **kwargs) -> Tuple[str, Type[TransactionAPI]]:
         if "type" in kwargs:
-            type_arg = str(kwargs["type"])
-            version = add_0x_prefix(type_arg)
+            type_arg = HexStr(str(kwargs["type"]))
+            version = str(add_0x_prefix(type_arg))
         elif "gas_price" in kwargs:
             version = "0x0"
         else:
