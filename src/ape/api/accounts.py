@@ -76,7 +76,7 @@ class AccountAPI(AddressAPI):
         elif txn.nonce < self.nonce:
             raise AccountsError("Invalid nonce, will not publish.")
 
-        txn.set_defaults(self.provider)
+        txn = self.provider.set_defaults(txn)
         if send_everything:
             txn.value = self.balance - txn.max_fee
 

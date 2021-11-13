@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import Enum, IntEnum
 from pathlib import Path
 from typing import Iterator, List, Optional
 
@@ -51,12 +51,6 @@ class TransactionAPI:
         to submit the transaction.
         """
         return self.value + self.max_fee
-
-    def set_defaults(self, provider: "ProviderAPI"):
-        """
-        Set default values in a transaction with the help of the given provider,
-        such as setting the `gas_limit` from an RPC call to ``eth_gasLimit``.
-        """
 
     @property
     @abstractmethod
@@ -207,6 +201,10 @@ class ProviderAPI:
     def get_events(self, **filter_params) -> Iterator[dict]:
         ...
 
+    @abstractmethod
+    def set_defaults(self, transaction: TransactionAPI) -> TransactionAPI:
+        ...
+
 
 class TestProviderAPI(ProviderAPI):
     """
@@ -220,6 +218,11 @@ class TestProviderAPI(ProviderAPI):
     @abstractmethod
     def revert(self, snapshot_id: str):
         ...
+
+
+class TransactionType(Enum):
+    STATIC = "0x0"
+    DYNAMIC = "0x2"
 
 
 class Web3Provider(ProviderAPI):
@@ -317,3 +320,25 @@ class Web3Provider(ProviderAPI):
         txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
         receipt = self.get_transaction(txn_hash.hex())
         return receipt
+
+    def set_defaults(self, txn: TransactionAPI) -> TransactionAPI:
+        """
+        Sets ``gas_limit`` if it is None.
+        Sub-classes would likely call this method.
+        """
+        if txn.gas_limit is None:
+            txn.gas_limit = self.estimate_gas_cost(txn)
+        # else: Assume user specified the correct amount or txn will fail and waste gas
+
+        if txn.type == TransactionType.STATIC:
+            if txn.gas_price is None:  # type: ignore
+                txn.gas_price = self.gas_price  # type: ignore
+        elif txn.type == TransactionType.DYNAMIC:
+            if txn.max_priority_fee is None:  # type: ignore
+                txn.max_priority_fee = self.priority_fee  # type: ignore
+
+            if txn.max_fee is None:
+                txn.max_fee = self.base_fee + txn.max_priority_fee
+            # else: Assume user specified the correct amount or txn will fail and waste gas
+
+        return txn
