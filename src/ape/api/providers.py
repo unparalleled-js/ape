@@ -6,10 +6,10 @@ from dataclassy import as_dict
 from hexbytes import HexBytes
 from web3 import Web3
 
+from ape.exceptions import ProviderError
+from ape.logging import logger
 from ape.types import TransactionSignature
 
-from ..exceptions import ProviderError
-from ..logging import logger
 from . import networks
 from .base import abstractdataclass, abstractmethod
 from .config import ConfigItem

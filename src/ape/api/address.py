@@ -1,8 +1,8 @@
 from typing import List, Optional
 
+from ape.exceptions import AddressError
 from ape.types import AddressType
 
-from ..exceptions import AddressError
 from .base import abstractdataclass, abstractmethod
 from .providers import ProviderAPI
 
