@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Any, Optional, Tuple, Type
 
 from eth_abi import decode_abi as abi_decode
@@ -16,10 +15,10 @@ from hexbytes import HexBytes
 from ape.api import (
     ContractLog,
     EcosystemAPI,
-    ProviderAPI,
     ReceiptAPI,
     TransactionAPI,
     TransactionStatusEnum,
+    TransactionType,
 )
 from ape.exceptions import DecodingError, OutOfGasError, SignatureError, TransactionError
 from ape.types import ABI, AddressType
@@ -34,22 +33,8 @@ NETWORKS = {
 }
 
 
-class TransactionType(Enum):
-    STATIC = "0x0"
-    DYNAMIC = "0x2"
-
-
 class BaseTransaction(TransactionAPI):
     type: str = None  # type: ignore
-
-    def set_defaults(self, provider: ProviderAPI):
-        """
-        Sets ``gas_limit`` if it is None.
-        Sub-classes should likely should call this method.
-        """
-        if self.gas_limit is None:
-            self.gas_limit = provider.estimate_gas_cost(self)
-        # else: Assume user specified the correct amount or txn will fail and waste gas
 
     def is_valid(self) -> bool:
         return False
@@ -110,12 +95,6 @@ class StaticFeeTransaction(BaseTransaction):
     def max_fee(self) -> int:
         return (self.gas_limit or 0) * (self.gas_price or 0)
 
-    def set_defaults(self, provider: ProviderAPI):
-        if self.gas_price is None:
-            self.gas_price = provider.gas_price
-
-        super().set_defaults(provider)
-
     def as_dict(self):
         data = super().as_dict()
         if "gas_price" in data:
@@ -135,16 +114,6 @@ class DynamicFeeTransaction(BaseTransaction):
     max_fee: int = None  # type: ignore
     max_priority_fee: int = None  # type: ignore
     type: str = TransactionType.DYNAMIC.value
-
-    def set_defaults(self, provider: ProviderAPI):
-        if self.max_priority_fee is None:
-            self.max_priority_fee = provider.priority_fee
-
-        if self.max_fee is None:
-            self.max_fee = provider.base_fee + self.max_priority_fee
-        # else: Assume user specified the correct amount or txn will fail and waste gas
-
-        super().set_defaults(provider)
 
     def as_dict(self):
         data = super().as_dict()
