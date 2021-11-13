@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterator, List, Optional, Type, Union
 
+from ape.exceptions import AccountsError, AliasAlreadyInUseError, SignatureError
 from ape.types import (
     AddressType,
     ContractType,
@@ -10,7 +11,6 @@ from ape.types import (
 )
 from ape.utils import cached_property
 
-from ..exceptions import AccountsError, AliasAlreadyInUseError, SignatureError
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
@@ -76,18 +76,9 @@ class AccountAPI(AddressAPI):
         elif txn.nonce < self.nonce:
             raise AccountsError("Invalid nonce, will not publish.")
 
-        # TODO: Add `GasEstimationAPI`
-        if txn.gas_price is None:
-            txn.gas_price = self.provider.gas_price
-        # else: assume user specified a correct price, or will take too much time to confirm
-
-        # NOTE: Allow overriding gas limit
-        if txn.gas_limit is None:
-            txn.gas_limit = self.provider.estimate_gas_cost(txn)
-        # else: assume user specified the correct amount or txn will fail and waste gas
-
+        txn.set_defaults(self.provider)
         if send_everything:
-            txn.value = self.balance - txn.gas_limit * txn.gas_price
+            txn.value = self.balance - txn.max_fee
 
         if txn.total_transfer_value > self.balance:
             raise AccountsError(

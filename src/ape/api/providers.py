@@ -6,10 +6,10 @@ from dataclassy import as_dict
 from hexbytes import HexBytes
 from web3 import Web3
 
+from ape.exceptions import ProviderError
 from ape.logging import logger
 from ape.types import TransactionSignature
 
-from ..exceptions import ProviderError
 from . import networks
 from .base import abstractdataclass, abstractmethod
 from .config import ConfigItem
@@ -23,8 +23,8 @@ class TransactionAPI:
     nonce: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
     value: int = 0
     gas_limit: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
-    gas_price: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
     data: bytes = b""
+    type: str = ""
 
     signature: Optional[TransactionSignature] = None
 
@@ -33,14 +33,30 @@ class TransactionAPI:
             raise ProviderError("Transaction is not valid.")
 
     @property
+    def max_fee(self) -> int:
+        """
+        The total amount in fees willing to be spent on a transaction.
+        Override this property as needed, such as for EIP-1559 differences.
+
+        See :class:`~ape_ethereum.ecosystem.StaticFeeTransaction` and
+        :class`~ape_ethereum.ecosystem.DynamicFeeTransaction` as examples.
+        """
+        return 0
+
+    @property
     def total_transfer_value(self) -> int:
         """
         The total amount of WEI that a transaction could use.
         Useful for determining if an account balance can afford
         to submit the transaction.
         """
-        # TODO Support EIP-1559
-        return (self.gas_limit or 0) * (self.gas_price or 0) + self.value
+        return self.value + self.max_fee
+
+    def set_defaults(self, provider: "ProviderAPI"):
+        """
+        Set default values in a transaction with the help of the given provider,
+        such as setting the `gas_limit` from an RPC call to ``eth_gasLimit``.
+        """
 
     @property
     @abstractmethod
@@ -94,6 +110,12 @@ class ReceiptAPI:
 
     def __str__(self) -> str:
         return f"<{self.__class__.__name__} {self.txn_hash}>"
+
+    def raise_for_status(self, txn: TransactionAPI):
+        """
+        Handle provider-specific errors regarding a non-successful
+        :class:`~api.providers.TransactionStatusEnum`.
+        """
 
     def ran_out_of_gas(self, gas_limit: int) -> bool:
         """
@@ -158,6 +180,16 @@ class ProviderAPI:
     @abstractmethod
     def gas_price(self) -> int:
         ...
+
+    @property
+    @abstractmethod
+    def priority_fee(self) -> int:
+        raise NotImplementedError("priority_fee is not implemented by this provider")
+
+    @property
+    @abstractmethod
+    def base_fee(self) -> int:
+        raise NotImplementedError("base_fee is not implemented by this provider")
 
     @abstractmethod
     def send_call(self, txn: TransactionAPI) -> bytes:  # Return value of function
@@ -228,6 +260,18 @@ class Web3Provider(ProviderAPI):
         Returns the current price per gas in wei.
         """
         return self._web3.eth.generate_gas_price()  # type: ignore
+
+    @property
+    def priority_fee(self) -> int:
+        """
+        Returns the current max priority fee per gas in wei.
+        """
+        return self._web3.eth.max_priority_fee
+
+    @property
+    def base_fee(self) -> int:
+        block = self._web3.eth.get_block("latest")
+        return block.baseFeePerGas  # type: ignore
 
     def get_nonce(self, address: str) -> int:
         """
