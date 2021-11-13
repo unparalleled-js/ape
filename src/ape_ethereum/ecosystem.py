@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Optional, Tuple, Type
 
 from eth_abi import decode_abi as abi_decode
@@ -31,6 +32,11 @@ NETWORKS = {
     "rinkeby": (4, 4),
     "goerli": (420, 420),
 }
+
+
+class TransactionType(Enum):
+    STATIC = "0x0"
+    DYNAMIC = "0x2"
 
 
 class BaseTransaction(TransactionAPI):
@@ -98,7 +104,7 @@ class StaticFeeTransaction(BaseTransaction):
     """
 
     gas_price: int = None  # type: ignore
-    type: str = "0x0"
+    type: str = TransactionType.STATIC.value
 
     @property
     def max_fee(self) -> int:
@@ -128,7 +134,7 @@ class DynamicFeeTransaction(BaseTransaction):
 
     max_fee: int = None  # type: ignore
     max_priority_fee: int = None  # type: ignore
-    type: str = "0x2"
+    type: str = TransactionType.DYNAMIC.value
 
     def set_defaults(self, provider: ProviderAPI):
         if self.max_priority_fee is None:
@@ -184,8 +190,8 @@ class Receipt(ReceiptAPI):
 
 class Ethereum(EcosystemAPI):
     transaction_class_map = {
-        "0x0": StaticFeeTransaction,
-        "0x2": DynamicFeeTransaction,
+        TransactionType.STATIC.value: StaticFeeTransaction,
+        TransactionType.DYNAMIC.value: DynamicFeeTransaction,
     }
     receipt_class = Receipt
 
@@ -238,10 +244,12 @@ class Ethereum(EcosystemAPI):
         if "type" in kwargs:
             type_arg = HexStr(str(kwargs["type"]))
             version = str(add_0x_prefix(type_arg))
+            # Ensure a valid type
+            version = TransactionType(version).value
         elif "gas_price" in kwargs:
-            version = "0x0"
+            version = TransactionType.STATIC.value
         else:
-            version = "0x2"
+            version = TransactionType.DYNAMIC.value
 
         return version, self.transaction_class_map[version]
 

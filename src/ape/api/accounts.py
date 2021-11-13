@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterator, List, Optional, Type, Union
 
+from ape.exceptions import AccountsError, AliasAlreadyInUseError, SignatureError
 from ape.types import (
     AddressType,
     ContractType,
@@ -10,7 +11,6 @@ from ape.types import (
 )
 from ape.utils import cached_property
 
-from ..exceptions import AccountsError, AliasAlreadyInUseError, SignatureError
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
