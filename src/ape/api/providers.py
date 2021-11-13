@@ -330,10 +330,10 @@ class Web3Provider(ProviderAPI):
             txn.gas_limit = self.estimate_gas_cost(txn)
         # else: Assume user specified the correct amount or txn will fail and waste gas
 
-        if txn.type == TransactionType.STATIC:
-            if txn.gas_price is None:  # type: ignore
-                txn.gas_price = self.gas_price  # type: ignore
-        elif txn.type == TransactionType.DYNAMIC:
+        txn_type = TransactionType(txn.type)
+        if txn_type == TransactionType.STATIC and txn.gas_price is None:  # type: ignore
+            txn.gas_price = self.gas_price  # type: ignore
+        elif txn_type == TransactionType.DYNAMIC:
             if txn.max_priority_fee is None:  # type: ignore
                 txn.max_priority_fee = self.priority_fee  # type: ignore
 
