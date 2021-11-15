@@ -14,7 +14,7 @@ from ape.utils import cached_property
 from .address import AddressAPI
 from .base import abstractdataclass, abstractmethod
 from .contracts import ContractContainer, ContractInstance
-from .providers import ReceiptAPI, TransactionAPI
+from .providers import ReceiptAPI, TransactionAPI, TransactionType
 
 if TYPE_CHECKING:
     from ape.managers.config import ConfigManager
@@ -76,7 +76,21 @@ class AccountAPI(AddressAPI):
         elif txn.nonce < self.nonce:
             raise AccountsError("Invalid nonce, will not publish.")
 
-        txn = self.provider.set_defaults(txn)
+        if txn.gas_limit is None:
+            txn.gas_limit = self.provider.estimate_gas_cost(txn)
+        # else: Assume user specified the correct amount or txn will fail and waste gas
+
+        txn_type = TransactionType(txn.type)
+        if txn_type == TransactionType.STATIC and txn.gas_price is None:  # type: ignore
+            txn.gas_price = self.gas_price  # type: ignore
+        elif txn_type == TransactionType.DYNAMIC:
+            if txn.max_priority_fee is None:  # type: ignore
+                txn.max_priority_fee = self.priority_fee  # type: ignore
+
+            if txn.max_fee is None:
+                txn.max_fee = self.base_fee + txn.max_priority_fee
+            # else: Assume user specified the correct amount or txn will fail and waste gas
+
         if send_everything:
             txn.value = self.balance - txn.max_fee
 

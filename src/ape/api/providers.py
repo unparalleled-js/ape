@@ -50,7 +50,7 @@ class TransactionAPI:
 
     @max_fee.setter
     def max_fee(self, value):
-        raise NotImplementedError("Max Fee is not settable by default.")
+        raise NotImplementedError("Max fee is not settable by default.")
 
     @property
     def total_transfer_value(self) -> int:
@@ -209,28 +209,6 @@ class ProviderAPI:
     @abstractmethod
     def get_events(self, **filter_params) -> Iterator[dict]:
         ...
-
-    def set_defaults(self, txn: TransactionAPI) -> TransactionAPI:
-        """
-        Sets ``gas_limit`` (and other transaction properties) if they are None.
-        Sub-classes would likely call this method when overriding.
-        """
-        if txn.gas_limit is None:
-            txn.gas_limit = self.estimate_gas_cost(txn)
-        # else: Assume user specified the correct amount or txn will fail and waste gas
-
-        txn_type = TransactionType(txn.type)
-        if txn_type == TransactionType.STATIC and txn.gas_price is None:  # type: ignore
-            txn.gas_price = self.gas_price  # type: ignore
-        elif txn_type == TransactionType.DYNAMIC:
-            if txn.max_priority_fee is None:  # type: ignore
-                txn.max_priority_fee = self.priority_fee  # type: ignore
-
-            if txn.max_fee is None:
-                txn.max_fee = self.base_fee + txn.max_priority_fee
-            # else: Assume user specified the correct amount or txn will fail and waste gas
-
-        return txn
 
 
 class TestProviderAPI(ProviderAPI):

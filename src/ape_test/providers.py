@@ -26,9 +26,6 @@ class LocalNetwork(TestProviderAPI):
     def estimate_gas_cost(self, txn: TransactionAPI) -> int:
         return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
 
-    def set_defaults(self, transaction: TransactionAPI) -> TransactionAPI:
-        return transaction
-
     @property
     def chain_id(self) -> int:
         return self._web3.eth.chain_id
