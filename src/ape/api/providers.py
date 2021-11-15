@@ -210,9 +210,27 @@ class ProviderAPI:
     def get_events(self, **filter_params) -> Iterator[dict]:
         ...
 
-    @abstractmethod
-    def set_defaults(self, transaction: TransactionAPI) -> TransactionAPI:
-        ...
+    def set_defaults(self, txn: TransactionAPI) -> TransactionAPI:
+        """
+        Sets ``gas_limit`` (and other transaction properties) if they are None.
+        Sub-classes would likely call this method when overriding.
+        """
+        if txn.gas_limit is None:
+            txn.gas_limit = self.estimate_gas_cost(txn)
+        # else: Assume user specified the correct amount or txn will fail and waste gas
+
+        txn_type = TransactionType(txn.type)
+        if txn_type == TransactionType.STATIC and txn.gas_price is None:  # type: ignore
+            txn.gas_price = self.gas_price  # type: ignore
+        elif txn_type == TransactionType.DYNAMIC:
+            if txn.max_priority_fee is None:  # type: ignore
+                txn.max_priority_fee = self.priority_fee  # type: ignore
+
+            if txn.max_fee is None:
+                txn.max_fee = self.base_fee + txn.max_priority_fee
+            # else: Assume user specified the correct amount or txn will fail and waste gas
+
+        return txn
 
 
 class TestProviderAPI(ProviderAPI):
@@ -324,24 +342,3 @@ class Web3Provider(ProviderAPI):
         txn_hash = self._web3.eth.send_raw_transaction(txn.encode())
         receipt = self.get_transaction(txn_hash.hex())
         return receipt
-
-    def set_defaults(self, txn: TransactionAPI) -> TransactionAPI:
-        """
-        Sets ``gas_limit`` if it is None.
-        Sub-classes would likely call this method.
-        """
-        if txn.gas_limit is None:
-            txn.gas_limit = self.estimate_gas_cost(txn)
-        # else: Assume user specified the correct amount or txn will fail and waste gas
-
-        if txn.type == TransactionType.STATIC and txn.gas_price is None:  # type: ignore
-            txn.gas_price = self.gas_price  # type: ignore
-        elif txn.type == TransactionType.DYNAMIC:
-            if txn.max_priority_fee is None:  # type: ignore
-                txn.max_priority_fee = self.priority_fee  # type: ignore
-
-            if txn.max_fee is None:
-                txn.max_fee = self.base_fee + txn.max_priority_fee
-            # else: Assume user specified the correct amount or txn will fail and waste gas
-
-        return txn
