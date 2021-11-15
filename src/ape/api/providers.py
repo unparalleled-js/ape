@@ -15,6 +15,11 @@ from .base import abstractdataclass, abstractmethod
 from .config import ConfigItem
 
 
+class TransactionType(Enum):
+    STATIC = "0x0"
+    DYNAMIC = "0x2"
+
+
 @abstractdataclass
 class TransactionAPI:
     chain_id: int = 0
@@ -24,7 +29,7 @@ class TransactionAPI:
     value: int = 0
     gas_limit: Optional[int] = None  # NOTE: `Optional` only to denote using default behavior
     data: bytes = b""
-    type: str = ""
+    type: TransactionType = TransactionType.DYNAMIC
 
     signature: Optional[TransactionSignature] = None
 
@@ -218,11 +223,6 @@ class TestProviderAPI(ProviderAPI):
     @abstractmethod
     def revert(self, snapshot_id: str):
         ...
-
-
-class TransactionType(Enum):
-    STATIC = "0x0"
-    DYNAMIC = "0x2"
 
 
 class Web3Provider(ProviderAPI):
