@@ -48,6 +48,10 @@ class TransactionAPI:
         """
         return 0
 
+    @max_fee.setter
+    def max_fee(self, value):
+        raise NotImplementedError("Max Fee is not settable by default.")
+
     @property
     def total_transfer_value(self) -> int:
         """
