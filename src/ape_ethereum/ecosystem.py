@@ -34,8 +34,6 @@ NETWORKS = {
 
 
 class BaseTransaction(TransactionAPI):
-    type: TransactionType = None  # type: ignore
-
     def is_valid(self) -> bool:
         return False
 
