@@ -17,7 +17,6 @@ class LocalNetwork(TestProviderAPI, Web3Provider):
     def update_settings(self, new_settings: dict):
         pass
 
-    def __post_init__(self):
         self._tester = PyEVMBackend.from_mnemonic(self.config["mnemonic"])
         self._web3 = Web3(EthereumTesterProvider(ethereum_tester=self._tester))
 

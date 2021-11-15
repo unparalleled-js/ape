@@ -14,13 +14,6 @@ class TestBaseTransaction:
         actual = txn.as_dict()
         assert "value" not in actual
 
-    def test_set_defaults_when_no_gas_limit_sets_from_provider(self, mocker):
-        txn = BaseTransaction()
-        txn.gas_limit = None  # Done just to be explicit
-        mock_provider = mocker.MagicMock()
-        txn.set_defaults(mock_provider)
-        mock_provider.estimate_gas_cost.assert_called_once_with(txn)
-
 
 class TestReceipt:
     def test_raise_for_status_out_of_gas_error(self, mocker):

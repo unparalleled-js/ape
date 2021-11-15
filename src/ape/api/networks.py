@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from .contracts import ContractLog
     from .explorers import ExplorerAPI
-    from .providers import ProviderAPI, ReceiptAPI, TransactionAPI
+    from .providers import ProviderAPI, ReceiptAPI, TransactionAPI, TransactionType
 
 
 @abstractdataclass
@@ -33,7 +33,7 @@ class EcosystemAPI:
     data_folder: Path
     request_header: str
 
-    transaction_class_map: Mapping[str, Type["TransactionAPI"]]
+    transaction_class_map: Mapping["TransactionType", Type["TransactionAPI"]]
     receipt_class: Type["ReceiptAPI"]
 
     _default_network: str = "development"

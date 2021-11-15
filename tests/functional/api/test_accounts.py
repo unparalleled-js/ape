@@ -60,6 +60,7 @@ class TestAccountAPI:
         # Transaction costs are greater than balance
         mock_transaction.total_transfer_value = 1000000
         mock_provider_api.get_balance.return_value = 0
+        mock_provider_api.set_defaults.return_value = mock_transaction
 
         with pytest.raises(AccountsError) as err:
             test_account_api_can_sign.call(mock_transaction)
@@ -77,6 +78,7 @@ class TestAccountAPI:
         mock_transaction = mocker.MagicMock(spec=TransactionAPI)
         mock_provider_api.get_nonce.return_value = mock_transaction.nonce = 0
         mock_transaction.total_transfer_value = mock_provider_api.get_balance.return_value = 1000000
+        mock_provider_api.set_defaults.return_value = mock_transaction
 
         with pytest.raises(AccountsError) as err:
             test_account_api_no_sign.call(mock_transaction)

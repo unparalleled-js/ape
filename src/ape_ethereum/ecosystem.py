@@ -34,7 +34,7 @@ NETWORKS = {
 
 
 class BaseTransaction(TransactionAPI):
-    type: str = None  # type: ignore
+    type: TransactionType = None  # type: ignore
 
     def is_valid(self) -> bool:
         return False
@@ -89,7 +89,7 @@ class StaticFeeTransaction(BaseTransaction):
     """
 
     gas_price: int = None  # type: ignore
-    type: str = TransactionType.STATIC.value
+    type: TransactionType = TransactionType.STATIC
 
     @property
     def max_fee(self) -> int:
@@ -113,7 +113,7 @@ class DynamicFeeTransaction(BaseTransaction):
 
     max_fee: int = None  # type: ignore
     max_priority_fee: int = None  # type: ignore
-    type: str = TransactionType.DYNAMIC.value
+    type: TransactionType = TransactionType.DYNAMIC
 
     def as_dict(self):
         data = super().as_dict()
@@ -121,6 +121,8 @@ class DynamicFeeTransaction(BaseTransaction):
             data["maxFeePerGas"] = data.pop("max_fee")
         if "max_priority_fee" in data:
             data["maxPriorityFeePerGas"] = data.pop("max_priority_fee")
+
+        data["type"] = data.pop("type").value
 
         return data
 
@@ -159,8 +161,8 @@ class Receipt(ReceiptAPI):
 
 class Ethereum(EcosystemAPI):
     transaction_class_map = {
-        TransactionType.STATIC.value: StaticFeeTransaction,
-        TransactionType.DYNAMIC.value: DynamicFeeTransaction,
+        TransactionType.STATIC: StaticFeeTransaction,
+        TransactionType.DYNAMIC: DynamicFeeTransaction,
     }
     receipt_class = Receipt
 
@@ -209,16 +211,16 @@ class Ethereum(EcosystemAPI):
 
         return txn  # type: ignore
 
-    def _extract_transaction_type(self, **kwargs) -> Tuple[str, Type[TransactionAPI]]:
+    def _extract_transaction_type(self, **kwargs) -> Tuple[TransactionType, Type[TransactionAPI]]:
         if "type" in kwargs:
             type_arg = HexStr(str(kwargs["type"]))
-            version = str(add_0x_prefix(type_arg))
+            version_str = str(add_0x_prefix(type_arg))
             # Ensure a valid type
-            version = TransactionType(version).value
+            version = TransactionType(version_str)
         elif "gas_price" in kwargs:
-            version = TransactionType.STATIC.value
+            version = TransactionType.STATIC
         else:
-            version = TransactionType.DYNAMIC.value
+            version = TransactionType.DYNAMIC
 
         return version, self.transaction_class_map[version]
 
