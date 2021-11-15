@@ -82,13 +82,13 @@ class AccountAPI(AddressAPI):
 
         txn_type = TransactionType(txn.type)
         if txn_type == TransactionType.STATIC and txn.gas_price is None:  # type: ignore
-            txn.gas_price = self.gas_price  # type: ignore
+            txn.gas_price = self.provider.gas_price  # type: ignore
         elif txn_type == TransactionType.DYNAMIC:
             if txn.max_priority_fee is None:  # type: ignore
-                txn.max_priority_fee = self.priority_fee  # type: ignore
+                txn.max_priority_fee = self.provider.priority_fee  # type: ignore
 
             if txn.max_fee is None:
-                txn.max_fee = self.base_fee + txn.max_priority_fee
+                txn.max_fee = self.provider.base_fee + txn.max_priority_fee
             # else: Assume user specified the correct amount or txn will fail and waste gas
 
         if send_everything:
