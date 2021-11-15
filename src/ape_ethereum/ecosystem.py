@@ -93,6 +93,10 @@ class StaticFeeTransaction(BaseTransaction):
     def max_fee(self) -> int:
         return (self.gas_limit or 0) * (self.gas_price or 0)
 
+    @max_fee.setter
+    def max_fee(self, valie):
+        raise NotImplementedError("Max fee is not settable for static-fee transactions.")
+
     def as_dict(self):
         data = super().as_dict()
         if "gas_price" in data:
