@@ -138,11 +138,7 @@ class Receipt(ReceiptAPI):
         Raises :class:`~ape.exceptions.TransactionError`
         when the transaction has a failing status otherwise.
         """
-        if not isinstance(txn, BaseTransaction):
-            return
-
-        gas_limit = txn.gas_limit
-        if gas_limit and self.ran_out_of_gas(gas_limit):
+        if txn.gas_limit and self.ran_out_of_gas(txn.gas_limit):
             raise OutOfGasError()
         elif self.status != TransactionStatusEnum.NO_ERROR:
             txn_hash = HexBytes(self.txn_hash).hex()
@@ -217,7 +213,6 @@ class Ethereum(EcosystemAPI):
         if "type" in kwargs:
             type_arg = HexStr(str(kwargs["type"]))
             version_str = str(add_0x_prefix(type_arg))
-            # Ensure a valid type
             version = TransactionType(version_str)
         elif "gas_price" in kwargs:
             version = TransactionType.STATIC
