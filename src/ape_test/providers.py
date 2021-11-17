@@ -30,11 +30,6 @@ class LocalNetwork(TestProviderAPI, Web3Provider):
         """Returns 0 because test chains do not care about priority fees."""
         return 0
 
-    @property
-    def base_fee(self) -> int:
-        """Returns 0 because test chains do not care about base fees."""
-        return 0
-
     def estimate_gas_cost(self, txn: TransactionAPI) -> int:
         try:
             return self._web3.eth.estimate_gas(txn.as_dict())  # type: ignore
