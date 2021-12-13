@@ -11,7 +11,7 @@ from ape.version import version as ape_version  # type: ignore
 
 @click.command(
     cls=NetworkBoundCommand,
-    short_help="Load the console",
+    short_help="Load the consolssssse",
     context_settings=dict(ignore_unknown_options=True),
 )
 @network_option()
