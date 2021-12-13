@@ -23,6 +23,7 @@ python_files = "test_*.py"
 testpaths = "tests"
 markers = "fuzzing: Run Hypothesis fuzz test suite"
 
+
 [tool.isort]
 line_length = 100
 force_grid_wrap = 0
