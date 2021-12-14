@@ -10,7 +10,7 @@ from ape.types import ContractType
 @contract_file_paths_argument()
 @click.option(
     "-f",
-    "--force",
+    "--forces",
     "use_cache",
     flag_value=False,
     default=True,
