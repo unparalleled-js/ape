@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Type, Union
 
 from dataclassy import dataclass
 
@@ -17,6 +17,19 @@ CONFIG_FILE_NAME = "ape-config.yaml"
 class DeploymentConfig(ConfigItem):
     address: Union[str, bytes]
     contract_type: str
+
+
+class DependencyConfig(ConfigItem):
+    name: str
+
+
+class IPFSDependency(DependencyConfig):
+    ipfs: str
+
+
+class GithubDependency(DependencyConfig):
+    github: str
+    version: str
 
 
 @dataclass
@@ -44,7 +57,7 @@ class ConfigManager:
     PROJECT_FOLDER: Path
     name: str = ""
     version: str = ""
-    dependencies: List[Dict] = []
+    dependencies: List[Union[IPFSDependency, GithubDependency]] = []
     deployments: Dict[str, Dict[str, List[DeploymentConfig]]] = {}
     plugin_manager: PluginManager
     _plugin_configs_by_project: Dict[str, Dict[str, ConfigItem]] = {}
@@ -69,10 +82,27 @@ class ConfigManager:
         # Top level config items
         self.name = user_config.pop("name", "")
         self.version = user_config.pop("version", "")
-        self.dependencies = user_config.pop("dependencies", [])
 
-        if not isinstance(self.dependencies, list):
+        dependencies = user_config.pop("dependencies", [])
+        if not isinstance(dependencies, list):
             raise ConfigError("'dependencies' config item must be a list of dicts.")
+
+        decoded_deps = []
+        dep_config_cls: Union[Type[IPFSDependency], Type[GithubDependency]]
+        for dep in dependencies:
+            if "ipfs" in dep:
+                dep_config_cls = IPFSDependency
+            elif "github" in dep:
+                dep_config_cls = GithubDependency
+            else:
+                supported_types = ("ipfs", "github")
+                raise ConfigError(
+                    f"Unsupported dependency type for '{dep['name']}' "
+                    f"(Supported types={','.join(supported_types)})."
+                )
+            decoded_deps.append(dep_config_cls(**dep))  # type: ignore
+
+        self.dependencies = decoded_deps
 
         # Sanitize deployment addresses.
         deployments = user_config.pop("deployments", {})

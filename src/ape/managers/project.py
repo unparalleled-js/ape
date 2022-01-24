@@ -15,6 +15,7 @@ from ethpm_types.utils import compute_checksum
 from ape.contracts import ContractContainer
 from ape.exceptions import ProjectError
 from ape.logging import logger
+from ape.managers.config import GithubDependency, IPFSDependency
 from ape.managers.networks import NetworkManager
 from ape.utils import get_all_files_in_directory, get_relative_path, github_client
 
@@ -59,14 +60,16 @@ class ProjectManager:
 
         config = self.config.load()
         self.dependencies = {
-            d["name"]: self._extract_dependency_manifest(d) for d in config.dependencies
+            d.name: self._extract_dependency_manifest(d) for d in config.dependencies
         }
 
     def __repr__(self):
         return "<ProjectManager>"
 
-    def _extract_dependency_manifest(self, dependency_item: Dict) -> PackageManifest:
-        name = dependency_item["name"]
+    def _extract_dependency_manifest(
+        self, dependency_item: Union[IPFSDependency, GithubDependency]
+    ) -> PackageManifest:
+        name = dependency_item.name
         target_path = self.config.packages_folder / name
         manifest_file_path = target_path / "manifest.json"
 
@@ -93,19 +96,21 @@ class ProjectManager:
 
         return PackageManifest(**manifest_dict)
 
-    def _download_manifest(self, dependency_item: Dict, manifest_target_path: Path) -> Dict:
+    def _download_manifest(
+        self, dependency_item: Union[IPFSDependency, GithubDependency], manifest_target_path: Path
+    ) -> Dict:
         manifest_dict = {}
-        name = dependency_item["name"]
+        name = dependency_item.name
 
-        if "ipfs" in dependency_item:
-            response = requests.get(dependency_item["ipfs"])
+        if isinstance(dependency_item, IPFSDependency):
+            response = requests.get(dependency_item.ipfs)
             manifest_dict = response.json()
-        elif "github" in dependency_item:
+        elif isinstance(dependency_item, GithubDependency):
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_project_path = Path(temp_dir) / name
                 temp_project_path.mkdir(exist_ok=True, parents=True)
-                path = dependency_item["github"]
-                version = dependency_item["version"]
+                path = dependency_item.github
+                version = dependency_item.version
                 github_client.download_package(path, version, temp_project_path)
 
                 temp_contracts_path = temp_project_path / "contracts"
