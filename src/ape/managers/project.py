@@ -58,7 +58,9 @@ class ProjectManager:
             self.path = Path(self.path)
 
         config = self.config.load()
-        self.dependencies = {d.name: self._extract_manifest(d) for d in config.dependencies}
+        self.dependencies = {
+            d["name"]: self._extract_dependency_manifest(d) for d in config.dependencies
+        }
 
     def __repr__(self):
         return "<ProjectManager>"
