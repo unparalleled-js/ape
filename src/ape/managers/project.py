@@ -54,7 +54,9 @@ class ProjectManager:
         if isinstance(self.path, str):
             self.path = Path(self.path)
 
-        self.dependencies = {d.name: self._extract_manifest(d) for d in self.config.dependencies}
+        self.dependencies = {
+            d["name"]: self._extract_dependency_manifest(d) for d in self.config.dependencies
+        }
 
     def __repr__(self):
         return "<ProjectManager>"
