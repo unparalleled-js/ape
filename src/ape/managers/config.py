@@ -44,7 +44,7 @@ class ConfigManager:
     PROJECT_FOLDER: Path
     name: str = ""
     version: str = ""
-    dependencies: Dict[str, str] = {}
+    dependencies: List[Dict] = []
     deployments: Dict[str, Dict[str, List[DeploymentConfig]]] = {}
     plugin_manager: PluginManager
     _plugin_configs_by_project: Dict[str, Dict[str, ConfigItem]] = {}
@@ -63,7 +63,7 @@ class ConfigManager:
         # Top level config items
         self.name = user_config.pop("name", "")
         self.version = user_config.pop("version", "")
-        self.dependencies = user_config.pop("dependencies", {})
+        self.dependencies = user_config.pop("dependencies", [])
 
         # Sanitize deployment addresses.
         deployments = user_config.pop("deployments", {})

@@ -54,20 +54,18 @@ class ProjectManager:
         if isinstance(self.path, str):
             self.path = Path(self.path)
 
-        self.dependencies = {
-            n: self._extract_manifest(n, dep_id) for n, dep_id in self.config.dependencies.items()
-        }
+        self.dependencies = {d.name: self._extract_manifest(d) for d in self.config.dependencies}
 
     def __repr__(self):
         return "<ProjectManager>"
 
-    def _extract_manifest(self, name: str, download_path: str) -> PackageManifest:
+    def _extract_manifest(self, dependency_item: Dict) -> PackageManifest:
         packages_path = self.config.DATA_FOLDER / "packages"
-        packages_path.mkdir(exist_ok=True, parents=True)
-        target_path = packages_path / name
+        target_path = packages_path / dependency_item["name"]
         target_path.mkdir(exist_ok=True, parents=True)
 
-        if download_path.startswith("https://") or download_path.startswith("http://"):
+        if "ipfs" in dependency_item:
+            download_path = dependency_item["ipfs"]
             manifest_file_path = target_path / "manifest.json"
             if manifest_file_path.exists():
                 manifest_dict = json.loads(manifest_file_path.read_text())
@@ -81,13 +79,9 @@ class ProjectManager:
                 raise ProjectError("Dependencies must have a name.")
 
             return PackageManifest(**manifest_dict)
-        else:
-            # Github dependency (format: <org>/<repo>@<version>)
-            try:
-                path, version = download_path.split("@")
-            except ValueError:
-                raise ValueError("Invalid Github ID. Must be given as <org>/<repo>@<version>")
-
+        elif "github" in dependency_item:
+            path = dependency_item["github"]
+            version = dependency_item["version"]
             package_contracts_path = target_path / "contracts"
             is_cached = len([p for p in target_path.iterdir()]) > 0
 
