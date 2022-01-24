@@ -65,6 +65,9 @@ class ConfigManager:
         self.version = user_config.pop("version", "")
         self.dependencies = user_config.pop("dependencies", [])
 
+        if not isinstance(self.dependencies, list):
+            raise ConfigError("'dependencies' config item must be a list of dicts.")
+
         # Sanitize deployment addresses.
         deployments = user_config.pop("deployments", {})
         valid_ecosystem_names = [e[0] for e in self.plugin_manager.ecosystems]
