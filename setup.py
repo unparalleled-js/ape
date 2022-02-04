@@ -87,7 +87,7 @@ setup(
         "pyyaml>=0.2.5",
         "py-geth>=3.6.0",
         "requests>=2.25.1,<3.0",
-        "importlib-metadata",
+        "importlib-metadata>=4.10.1",
         "singledispatchmethod ; python_version<'3.8'",
         "IPython>=7.31.1",
         "pytest>=6.0,<7.0",
