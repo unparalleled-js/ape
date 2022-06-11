@@ -17,6 +17,7 @@ from evm_trace import (
     get_calltree_from_parity_trace,
 )
 from hexbytes import HexBytes
+from pydantic import validator
 from pydantic.fields import Field
 from rich.console import Console as RichConsole
 from rich.tree import Tree
@@ -64,6 +65,12 @@ class TransactionAPI(BaseInterfaceModel):
 
     class Config:
         allow_population_by_field_name = True
+
+    @validator("chain_id", pre=True)
+    def validate_chain_id(cls, v):
+        if isinstance(v, str):
+            return int(v, 16)
+        return v
 
     @property
     def total_transfer_value(self) -> int:
