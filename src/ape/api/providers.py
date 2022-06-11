@@ -14,7 +14,13 @@ from eth_abi.abi import encode_single
 from eth_typing import HexStr
 from eth_utils import add_0x_prefix, keccak
 from ethpm_types.abi import EventABI
-from evm_trace import ParityTraceList, TraceFrame
+from evm_trace import (
+    CallTreeNode,
+    ParityTraceList,
+    TraceFrame,
+    get_calltree_from_geth_trace,
+    get_calltree_from_parity_trace,
+)
 from hexbytes import HexBytes
 from pydantic import Field, validator
 from web3 import Web3
@@ -409,7 +415,7 @@ class ProviderAPI(BaseInterfaceModel):
         """
 
     @raises_not_implemented
-    def get_geth_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
+    def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         """
         Provide a detailed description of opcodes.
 
@@ -421,15 +427,15 @@ class ProviderAPI(BaseInterfaceModel):
         """
 
     @raises_not_implemented
-    def get_parity_trace(self, txn_hash: str) -> ParityTraceList:
+    def get_call_tree(self, txn_hash: str) -> CallTreeNode:
         """
-        Provide a call-level trace of transaction execution.
+        Create a tree structure of calls for a transaction.
 
         Args:
             txn_hash (str): The hash of a transaction to trace.
 
         Returns:
-            ParityTraceList: List of calls during transaction execution.
+            CallTreeNode: Transaction execution call-tree objects.
         """
 
     def prepare_transaction(self, txn: TransactionAPI) -> TransactionAPI:
@@ -696,14 +702,20 @@ class Web3Provider(ProviderAPI, ABC):
         for transaction in block.get("transactions"):  # type: ignore
             yield self.network.ecosystem.create_transaction(**transaction)  # type: ignore
 
-    def get_geth_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
+    def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         frames = self._make_request("debug_traceTransaction", [txn_hash]).structLogs
         for frame in frames:
             yield TraceFrame.parse_obj(frame)
 
-    def get_parity_trace(self, txn_hash: str) -> ParityTraceList:
-        raw_trace = self.web3.manager.request_blocking("trace_transaction", [txn_hash])
-        return ParityTraceList.parse_obj(raw_trace)
+    def get_call_tree(self, txn_hash: str, **root_node_kwargs) -> CallTreeNode:
+        try:
+            data = self.web3.manager.request_blocking("trace_transaction", [txn_hash])
+            traces = ParityTraceList.parse_obj(data)
+            return get_calltree_from_parity_trace(traces)
+        except ValueError:
+            logger.info("trace api not supported, falling back to debug trace api")
+            frames = self.get_transaction_trace(txn_hash)
+            return get_calltree_from_geth_trace(frames, **root_node_kwargs)
 
     def get_contract_logs(
         self,

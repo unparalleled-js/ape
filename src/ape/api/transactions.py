@@ -3,19 +3,13 @@ import re
 import sys
 import time
 from dataclasses import dataclass
-from typing import IO, TYPE_CHECKING, Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from eth_abi import decode_abi
 from eth_abi.exceptions import InsufficientDataBytes
 from eth_utils import humanize_hash, is_hex_address
 from ethpm_types.abi import EventABI, MethodABI
-from evm_trace import (
-    CallTreeNode,
-    CallType,
-    TraceFrame,
-    get_calltree_from_geth_trace,
-    get_calltree_from_parity_trace,
-)
+from evm_trace import CallTreeNode, CallType, TraceFrame
 from hexbytes import HexBytes
 from pydantic import validator
 from pydantic.fields import Field
@@ -301,7 +295,6 @@ class ReceiptAPI(BaseInterfaceModel):
         self,
         verbose: bool = False,
         file: IO[str] = sys.stdout,
-        style: Literal["geth", "parity"] = "parity",
     ):
         """
         Display the complete sequence of contracts and methods called during
@@ -320,13 +313,7 @@ class ReceiptAPI(BaseInterfaceModel):
             "value": self.value,
             "call_type": CallType.CALL,
         }
-        if style == "geth":
-            call_tree = get_calltree_from_geth_trace(self.trace, **root_node_kwargs)
-        elif style == "parity":
-            raw_trace = self.provider.get_parity_trace(self.txn_hash)
-            call_tree = get_calltree_from_parity_trace(raw_trace)
-        else:
-            raise ValueError("trace style must be either geth or parity")
+        call_tree = self.provider.get_call_tree(self.txn_hash, **root_node_kwargs)
 
         root = tree_factory.parse_as_tree(call_tree)
         console = RichConsole(file=file)
