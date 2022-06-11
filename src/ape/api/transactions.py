@@ -354,22 +354,27 @@ class CallTraceParser:
         return self._receipt.provider.network.ecosystem
 
     def parse_as_tree(self, call: CallTreeNode) -> Tree:
-        address = self._receipt.provider.network.ecosystem.decode_address(call.address)
+        if call.address is not None:
+            address = self._receipt.provider.network.ecosystem.decode_address(call.address)
 
-        # Collapse pre-compile address calls
-        address_int = int(address, 16)
-        if 1 <= address_int <= 9:
-            sub_trees = [self.parse_as_tree(c) for c in call.calls]
-            if len(sub_trees) == 1:
-                return sub_trees[0]
+            # Collapse pre-compile address calls
+            address_int = int(address, 16)
+            if 1 <= address_int <= 9:
+                sub_trees = [self.parse_as_tree(c) for c in call.calls]
+                if len(sub_trees) == 1:
+                    return sub_trees[0]
 
-            intermediary_node = Tree(f"{address_int}")
-            for sub_tree in sub_trees:
-                intermediary_node.add(sub_tree)
+                intermediary_node = Tree(f"{address_int}")
+                for sub_tree in sub_trees:
+                    intermediary_node.add(sub_tree)
 
-            return intermediary_node
+                return intermediary_node
 
-        contract_type = self._receipt.chain_manager.contracts.get(address)
+            contract_type = self._receipt.chain_manager.contracts.get(address)
+        else:
+            address = None
+            contract_type = None
+
         selector = call.calldata[:4]
 
         if contract_type:
