@@ -14,7 +14,7 @@ from eth_abi.abi import encode_single
 from eth_typing import HexStr
 from eth_utils import add_0x_prefix, keccak
 from ethpm_types.abi import EventABI
-from evm_trace import TraceFrame
+from evm_trace import ParityTraceList, TraceFrame
 from hexbytes import HexBytes
 from pydantic import Field, validator
 from web3 import Web3
@@ -409,7 +409,7 @@ class ProviderAPI(BaseInterfaceModel):
         """
 
     @raises_not_implemented
-    def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
+    def get_geth_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         """
         Provide a detailed description of opcodes.
 
@@ -418,6 +418,18 @@ class ProviderAPI(BaseInterfaceModel):
 
         Returns:
             Iterator(TraceFrame): Transaction execution trace object.
+        """
+
+    @raises_not_implemented
+    def get_parity_trace(self, txn_hash: str) -> ParityTraceList:
+        """
+        Provide a call-level trace of transaction execution.
+
+        Args:
+            txn_hash (str): The hash of a transaction to trace.
+
+        Returns:
+            ParityTraceList: List of calls during transaction execution.
         """
 
     def prepare_transaction(self, txn: TransactionAPI) -> TransactionAPI:
@@ -573,6 +585,9 @@ class Web3Provider(ProviderAPI, ABC):
 
         return self._web3
 
+    def _make_request(self, rpc: str, args: list) -> Any:
+        return self.web3.manager.request_blocking(rpc, args)  # type: ignore
+
     def update_settings(self, new_settings: dict):
         self.disconnect()
         self.provider_settings.update(new_settings)
@@ -680,6 +695,15 @@ class Web3Provider(ProviderAPI, ABC):
         block = self.web3.eth.get_block(block_id, full_transactions=True)
         for transaction in block.get("transactions"):  # type: ignore
             yield self.network.ecosystem.create_transaction(**transaction)  # type: ignore
+
+    def get_geth_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
+        frames = self._make_request("debug_traceTransaction", [txn_hash]).structLogs
+        for frame in frames:
+            yield TraceFrame.parse_obj(frame)
+
+    def get_parity_trace(self, txn_hash: str) -> ParityTraceList:
+        raw_trace = self.web3.manager.request_blocking("trace_transaction", [txn_hash])
+        return ParityTraceList.parse_obj(raw_trace)
 
     def get_contract_logs(
         self,

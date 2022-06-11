@@ -9,7 +9,7 @@ from eth_abi import decode_abi
 from eth_abi.exceptions import InsufficientDataBytes
 from eth_utils import humanize_hash, is_hex_address
 from ethpm_types.abi import EventABI, MethodABI
-from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_trace
+from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
 from hexbytes import HexBytes
 from pydantic.fields import Field
 from rich.console import Console as RichConsole
@@ -300,9 +300,9 @@ class ReceiptAPI(BaseInterfaceModel):
             "address": self.receiver,
             "calldata": self.input_data,
             "value": self.value,
-            "call_type": CallType.MUTABLE,
+            "call_type": CallType.CALL,
         }
-        call_tree = get_calltree_from_trace(self.trace, **root_node_kwargs)
+        call_tree = get_calltree_from_geth_trace(self.trace, **root_node_kwargs)
         root = tree_factory.parse_as_tree(call_tree)
         console = RichConsole(file=file)
         console.print(f"Call trace for [bold blue]'{self.txn_hash}'[/]")
