@@ -3,13 +3,19 @@ import re
 import sys
 import time
 from dataclasses import dataclass
-from typing import IO, TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 from eth_abi import decode_abi
 from eth_abi.exceptions import InsufficientDataBytes
 from eth_utils import humanize_hash, is_hex_address
 from ethpm_types.abi import EventABI, MethodABI
-from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
+from evm_trace import (
+    CallTreeNode,
+    CallType,
+    TraceFrame,
+    get_calltree_from_geth_trace,
+    get_calltree_from_parity_trace,
+)
 from hexbytes import HexBytes
 from pydantic.fields import Field
 from rich.console import Console as RichConsole
@@ -284,7 +290,12 @@ class ReceiptAPI(BaseInterfaceModel):
 
         return self
 
-    def show_trace(self, verbose: bool = False, file: IO[str] = sys.stdout):
+    def show_trace(
+        self,
+        verbose: bool = False,
+        file: IO[str] = sys.stdout,
+        style: Literal["geth", "parity"] = "parity",
+    ):
         """
         Display the complete sequence of contracts and methods called during
         the transaction.
@@ -302,7 +313,14 @@ class ReceiptAPI(BaseInterfaceModel):
             "value": self.value,
             "call_type": CallType.CALL,
         }
-        call_tree = get_calltree_from_geth_trace(self.trace, **root_node_kwargs)
+        if style == "geth":
+            call_tree = get_calltree_from_geth_trace(self.trace, **root_node_kwargs)
+        elif style == "parity":
+            raw_trace = self.provider.get_parity_trace(self.txn_hash)
+            call_tree = get_calltree_from_parity_trace(raw_trace)
+        else:
+            raise ValueError("trace style must be either geth or parity")
+
         root = tree_factory.parse_as_tree(call_tree)
         console = RichConsole(file=file)
         console.print(f"Call trace for [bold blue]'{self.txn_hash}'[/]")
@@ -514,7 +532,7 @@ class _MethodTraceSignature:
         method = f"[{_TraceColor.METHODS}]{self.method_name}[/]"
         call_path = f"{contract}.{method}"
 
-        if self.call_type == CallType.DELEGATE:
+        if self.call_type == CallType.DELEGATECALL:
             call_path = f"[orange](delegate)[/] {call_path}"
 
         arguments_str = self._build_arguments_str()
