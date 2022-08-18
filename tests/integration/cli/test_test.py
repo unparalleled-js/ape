@@ -38,3 +38,14 @@ def test_fixture_docs(ape_cli, runner, project):
     )
     assert "Connect to other networks in your tests." in result.output
     assert "Access contract types and dependencies." in result.output
+
+
+@projects_with_tests
+def test_custom_pytest_options(ape_cli, runner):
+    result = runner.invoke(ape_cli, ["test", "--help"])
+    assert result.exit_code == 0
+    assert "--showinternal" in result.output
+    assert "--network" in result.output
+    assert "--interactive" in result.output
+    assert "--disable-isolation" in result.output
+    assert "--gas" in result.output

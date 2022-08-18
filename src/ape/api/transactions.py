@@ -305,3 +305,9 @@ class ReceiptAPI(BaseInterfaceModel):
             verbose (bool): Set to ``True`` to include more information.
             file (IO[str]): The file to send output to. Defaults to stdout.
         """
+
+    def get_gas_usage(self):
+        """
+        Get a data structure representing the external and internal calls
+        on the transaction and their gas usage.
+        """

@@ -30,6 +30,11 @@ def pytest_addoption(parser):
         action="store_true",
         help="Disable test and fixture isolation (see provider for info on snapshot availability)",
     )
+    parser.addoption(
+        "--gas",
+        action="store_true",
+        help="Display a gas report at the end of the tests",
+    )
 
     # NOTE: Other pytest plugins, such as hypothesis, should integrate with pytest separately
 

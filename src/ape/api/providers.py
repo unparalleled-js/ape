@@ -491,10 +491,6 @@ class ProviderAPI(BaseInterfaceModel):
 
         return txn
 
-    def _try_track_receipt(self, receipt: ReceiptAPI):
-        if self.chain_manager:
-            self.chain_manager.account_history.append(receipt)
-
     def get_virtual_machine_error(self, exception: Exception) -> VirtualMachineError:
         """
         Get a virtual machine error from an error returned from your RPC.
@@ -890,7 +886,7 @@ class Web3Provider(ProviderAPI, ABC):
         )
         receipt.raise_for_status()
         logger.info(f"Confirmed {receipt.txn_hash} (total fees paid = {receipt.total_fees_paid})")
-        self._try_track_receipt(receipt)
+        self.chain_manager.account_history.append(receipt)
         return receipt
 
     def _make_request(self, endpoint: str, parameters: List) -> Any:

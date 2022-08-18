@@ -13,6 +13,11 @@ from ape_console._cli import console
 
 
 class PytestApeRunner(ManagerAccessMixin):
+    """
+    The pytest runner that runs your project's tests.
+    Pytest-hooks are implemented here.
+    """
+
     def __init__(
         self,
         pytest_config: PytestConfig,
@@ -130,7 +135,7 @@ class PytestApeRunner(ManagerAccessMixin):
         Called after the `Session` object has been created and before performing
         collection and entering the run test loop.
 
-        Removes `PytestAssertRewriteWarning` warnings from the terminalreporter.
+        Removes ``PytestAssertRewriteWarning`` warnings from the terminalreporter.
         This prevents warnings that "the `ape` library was already imported and
         so related assertions cannot be rewritten". The warning is not relevant
         for end users who are performing tests with ape.
@@ -153,14 +158,19 @@ class PytestApeRunner(ManagerAccessMixin):
             self._provider_context.push_provider()
             self._provider_is_connected = True
 
-    def pytest_sessionfinish(self):
+    def pytest_terminal_summary(self, terminalreporter):
         """
-        Called after whole test run finished, right before returning the exit
-        status to the system.
+        Add a section to terminal summary reporting.
+        When ``--gas`` is active, outputs the gas profile report.
+        """
 
-        **NOTE**: This hook fires even when exceptions occur, so we cannot
-        assume the provider successfully connected.
-        """
+        if self.pytest_config.getoption("gas"):
+            terminalreporter.section("Gas Profile")
+
+            for receipt in self.chain_manager.account_history.receipts:
+                usage = receipt.get_gas_usage()
+                terminalreporter.writeline(str(usage))
+
         if self._provider_is_connected:
             self._provider_context.disconnect_all()
             self._provider_is_connected = False
