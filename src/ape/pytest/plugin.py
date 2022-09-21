@@ -17,18 +17,23 @@ def pytest_addoption(parser):
         "--network",
         action="store",
         default=networks.default_ecosystem.name,
-        help="Override the default network and provider. (see ``ape networks list`` for options)",
+        help="Override the default network and provider (see ``ape networks list`` for options).",
     )
     parser.addoption(
         "--interactive",
         "-I",
         action="store_true",
-        help="Open an interactive console each time a test fails",
+        help="Open an interactive console each time a test fails.",
     )
     parser.addoption(
         "--disable-isolation",
         action="store_true",
-        help="Disable test and fixture isolation (see provider for info on snapshot availability)",
+        help="Disable test and fixture isolation (see provider for info on snapshot availability).",
+    )
+    parser.addoption(
+        "--gas",
+        action="store_true",
+        help="Show a transaction gas report at the end of the test session.",
     )
 
     # NOTE: Other pytest plugins, such as hypothesis, should integrate with pytest separately

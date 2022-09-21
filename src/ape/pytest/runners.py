@@ -164,3 +164,11 @@ class PytestApeRunner(ManagerAccessMixin):
         if self._provider_is_connected:
             self._provider_context.disconnect_all()
             self._provider_is_connected = False
+
+    def pytest_terminal_summary(self, terminalreporter):
+        """
+        Add a section to terminal summary reporting.
+        When ``--gas`` is active, outputs the gas profile report.
+        """
+        if self.pytest_config.getoption("--gas"):
+            terminalreporter.section("Gas Profile")
