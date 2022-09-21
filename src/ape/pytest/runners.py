@@ -8,6 +8,7 @@ import ape
 from ape.api import ProviderContextManager
 from ape.logging import logger
 from ape.pytest.contextmanagers import RevertsContextManager
+from ape.pytest.reports import reporter
 from ape.utils import ManagerAccessMixin
 from ape_console._cli import console
 
@@ -172,3 +173,6 @@ class PytestApeRunner(ManagerAccessMixin):
         """
         if self.pytest_config.getoption("--gas"):
             terminalreporter.section("Gas Profile")
+            gas_reports = reporter.build_gas_report()
+            for report in gas_reports:
+                terminalreporter.write_line(report)

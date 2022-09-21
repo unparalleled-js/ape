@@ -54,16 +54,18 @@ def pytest_configure(config):
     # Enable verbose output if stdout capture is disabled
     config.option.verbose = config.getoption("capture") == "no"
 
+    # Register the custom Ape test runner
     session = PytestApeRunner(pytest_config=config)
     config.pluginmanager.register(session, "ape-test")
 
+    # Include custom fixtures for project, accounts etc.
     fixtures = PytestApeFixtures()
     config.pluginmanager.register(fixtures, "ape-fixtures")
 
 
 def pytest_load_initial_conftests(early_config):
     """
-    Compile contracts before loading conftests.
+    Compile contracts before loading ``conftest.py``s.
     """
     cap_sys = early_config.pluginmanager.get_plugin("capturemanager")
 
