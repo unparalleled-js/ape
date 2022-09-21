@@ -210,6 +210,12 @@ class ProviderNotConnectedError(ProviderError):
         super().__init__("Not connected to a network provider.")
 
 
+class BlockNotFoundError(ProviderError):
+    """
+    Raised when attempting to retrieve an unknown block.
+    """
+
+
 class ConfigError(ApeException):
     """
     Raised when a problem occurs from the configuration file.

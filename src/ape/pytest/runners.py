@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 import pytest
 from _pytest.config import Config as PytestConfig
+from rich import print as rich_print
 
 import ape
 from ape.api import ProviderContextManager
@@ -163,7 +164,7 @@ class PytestApeRunner(ManagerAccessMixin):
         assume the provider successfully connected.
         """
         if self._provider_is_connected:
-            self._provider_context.disconnect_all()
+            #self._provider_context.disconnect_all()
             self._provider_is_connected = False
 
     def pytest_terminal_summary(self, terminalreporter):
@@ -172,7 +173,6 @@ class PytestApeRunner(ManagerAccessMixin):
         When ``--gas`` is active, outputs the gas profile report.
         """
         if self.pytest_config.getoption("--gas"):
-            terminalreporter.section("Gas Profile")
-            gas_reports = reporter.build_gas_report()
-            for report in gas_reports:
-                terminalreporter.write_line(report)
+            if reporter.gas_report:
+                terminalreporter.section("Gas Profile")
+                rich_print(reporter.gas_report)

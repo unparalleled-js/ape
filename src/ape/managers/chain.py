@@ -94,7 +94,7 @@ class BlockContainer(BaseManager):
 
     def query(
         self,
-        *columns: List[str],
+        *columns: str,
         start_block: int = 0,
         stop_block: Optional[int] = None,
         step: int = 1,
@@ -111,7 +111,7 @@ class BlockContainer(BaseManager):
               than the chain length.
 
         Args:
-            columns (List[str]): columns in the DataFrame to return
+            *columns (str): columns in the DataFrame to return
             start_block (int): The first block, by number, to include in the
               query. Defaults to 0.
             stop_block (Optional[int]): The last block, by number, to include
@@ -1022,6 +1022,7 @@ class ChainManager(BaseManager):
             snapshot_id (Optional[:class:`~ape.types.SnapshotID`]): The snapshot ID. Defaults
               to the most recent snapshot ID.
         """
+
         if snapshot_id is None and not self._snapshots:
             raise ChainError("There are no snapshots to revert to.")
         elif snapshot_id is None:

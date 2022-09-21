@@ -1,4 +1,4 @@
-# the Ape Pytest Plugin
+# The Ape Pytest Plugin
 
 The `ape_test` core plugin is responsible for invoking tests.
 However, to correctly integrate with `pytest`, the `ape_test` plugin needs to register itself as a pytest plugin.

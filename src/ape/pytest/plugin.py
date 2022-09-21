@@ -62,6 +62,11 @@ def pytest_configure(config):
     fixtures = PytestApeFixtures()
     config.pluginmanager.register(fixtures, "ape-fixtures")
 
+    # if sys.stdout.isatty():
+    #     # Replace the standard terminal reporter plugin with ours.
+    #     config.pluginmanager.unregister(name="terminalreporter")
+    #     config.pluginmanager.register(ApeRichTerminalReporter(config), "terminalreporter")
+
 
 def pytest_load_initial_conftests(early_config):
     """
