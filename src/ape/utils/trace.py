@@ -18,18 +18,20 @@ from rich.table import Table
 from rich.tree import Tree
 
 from ape.exceptions import ContractError, DecodingError
-from ape.types import AddressType
+from ape.utils import ManagerAccessMixin
 from ape.utils.abi import Struct, parse_type
 from ape.utils.misc import ZERO_ADDRESS
 
 if TYPE_CHECKING:
     from ape.api.networks import EcosystemAPI
     from ape.api.transactions import ReceiptAPI
+    from ape.types import AddressType, GasReport
 
 
 _DEFAULT_TRACE_GAS_PATTERN = re.compile(r"\[\d* gas]")
 _DEFAULT_WRAP_THRESHOLD = 50
 _DEFAULT_INDENT = 2
+_ETH_TRANSFER = "Transferring ETH"
 
 
 class TraceStyles:
@@ -61,7 +63,7 @@ class TraceStyles:
     """The gas used of the call."""
 
 
-class CallTraceParser:
+class CallTraceParser(ManagerAccessMixin):
     """
     A class for parsing a call trace, used in the
     :meth:`~ape.api.transactions.ReceiptAPI.show_trace` method,
@@ -135,7 +137,7 @@ class CallTraceParser:
             return call_sig
 
         if contract_type:
-            contract_name = self._get_contract_name(address, contract_type)
+            contract_name = self._get_contract_id(address, contract_type)
             method = _get_method_abi(selector, contract_type)
 
             if method:
@@ -288,64 +290,63 @@ class CallTraceParser:
 
     def parse_as_gas_report(self, call: CallTreeNode) -> List[Table]:
         report = self._get_rich_gas_report(call)
-        tables: List[Table] = []
+        return parse_gas_table(report)
 
-        for contract_id, method_calls in report.items():
-            title = f"{contract_id} Gas"
-            table = Table(title=title, box=SIMPLE)
-            table.add_column("Method")
-            table.add_column("Times called", justify="right")
-            table.add_column("Min.", justify="right")
-            table.add_column("Max.", justify="right")
-            table.add_column("Mean", justify="right")
-            table.add_column("Median", justify="right")
-
-            for method_call, gases in method_calls.items():
-                table.add_row(
-                    method_call,
-                    f"{len(gases)}",
-                    f"{min(gases)}",
-                    f"{max(gases)}",
-                    f"{int(round(mean(gases)))}",
-                    f"{int(round(median(gases)))}",
+    def _get_contract_id(
+        self, address: "AddressType", contract_type: Optional[ContractType] = None
+    ) -> str:
+        result = None
+        if contract_type:
+            contract_name = contract_type.name
+            if "symbol" in contract_type.view_methods:
+                # Use token symbol as name
+                contract = self._receipt.chain_manager.contracts.instance_at(
+                    address, contract_type, txn_hash=self._receipt.txn_hash
                 )
 
-            tables.append(table)
+                try:
+                    result = contract.symbol()
+                    if result and str(result):
+                        result = str(result)
 
-        return tables
+                except ContractError:
+                    pass
 
-    def _get_contract_name(self, address: AddressType, contract_type: ContractType):
-        contract_name = contract_type.name
-        if "symbol" not in contract_type.view_methods:
-            return contract_name
+            elif contract_name:
+                result = contract_name
 
-        # Use token symbol as name
-        contract = self._receipt.chain_manager.contracts.instance_at(
-            address, contract_type, txn_hash=self._receipt.txn_hash
-        )
+        if not result:
+            result = self._get_contract_id_from_address(address)
 
-        try:
-            return contract.symbol() or contract_name
-        except ContractError:
-            return contract_type.name
+        return result
 
-    def _get_rich_gas_report(self, calltree: CallTreeNode) -> Dict[str, Dict[str, List[int]]]:
+    def _get_contract_id_from_address(self, address: "AddressType") -> str:
+        if address in self.account_manager:
+            return _ETH_TRANSFER
+
+        return address
+
+    def _get_rich_gas_report(self, calltree: CallTreeNode) -> "GasReport":
         address = self._receipt.provider.network.ecosystem.decode_address(calltree.address)
         contract_type = self._receipt.chain_manager.contracts.get(address)
         selector = calltree.calldata[:4]
+        contract_id = self._get_contract_id(address, contract_type)
 
-        if contract_type:
-            contract_name = self._get_contract_name(address, contract_type)
-            method_id = _get_method_abi(selector, contract_type)
-            if method_id:
-                method_name = method_id.name
-            else:
-                method_name = selector.hex()
+        if contract_id == _ETH_TRANSFER:
+            receiver_id = address
+            if receiver_id in self.account_manager:
+                receiver_id = self.account_manager[receiver_id].alias
+
+            method_id = f"to:{receiver_id}"
+
+        elif contract_type:
+            method_abi = _get_method_abi(selector, contract_type)
+            method_id = selector.hex() if not method_abi else method_abi.name
+
         else:
-            contract_name = address
-            method_name = selector.hex()
+            method_id = selector.hex()
 
-        report = {contract_name: {method_name: [calltree.gas_cost] if calltree.gas_cost else []}}
+        report = {contract_id: {method_id: [calltree.gas_cost] if calltree.gas_cost else []}}
         return merge_reports(report, *map(self._get_rich_gas_report, calltree.calls))
 
 
@@ -491,3 +492,31 @@ def _get_method_abi(selector, contract_type) -> Optional[MethodABI]:
         return contract_type.view_methods[selector]
 
     return None
+
+
+def parse_gas_table(report: "GasReport") -> List[Table]:
+    tables: List[Table] = []
+
+    for contract_id, method_calls in report.items():
+        title = f"{contract_id} Gas"
+        table = Table(title=title, box=SIMPLE)
+        table.add_column("Method")
+        table.add_column("Times called", justify="right")
+        table.add_column("Min.", justify="right")
+        table.add_column("Max.", justify="right")
+        table.add_column("Mean", justify="right")
+        table.add_column("Median", justify="right")
+
+        for method_call, gases in method_calls.items():
+            table.add_row(
+                method_call,
+                f"{len(gases)}",
+                f"{min(gases)}",
+                f"{max(gases)}",
+                f"{int(round(mean(gases)))}",
+                f"{int(round(median(gases)))}",
+            )
+
+        tables.append(table)
+
+    return tables
