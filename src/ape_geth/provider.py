@@ -320,26 +320,6 @@ class GethProvider(Web3Provider, UpstreamProvider):
             frames = self.get_transaction_trace(txn_hash)
             return get_calltree_from_geth_trace(frames, **root_node_kwargs)
 
-    def trace_call(self, txn: TransactionAPI, block_number: Optional[str] = None, **kwargs) -> Any:
-        block_number = block_number or "latest"
-        txn_dict = txn.dict()
-        data = txn_dict.get("data")
-        chain_id = txn_dict.get("chainId")
-        value = txn_dict.get("value")
-
-        if isinstance(data, bytes):
-            txn_dict["data"] = add_0x_prefix(HexStr(data.hex()))
-        if isinstance(chain_id, int):
-            txn_dict["chainId"] = to_hex(chain_id)
-        if isinstance(value, int):
-            txn_dict["value"] = to_hex(value)
-
-        result = self._make_request("debug_traceCall", [txn_dict, block_number, kwargs])
-        return_value = result["returnValue"]
-
-        # Returns `bytes` so an be used like `send_call()`.
-        return HexBytes(return_value)
-
     def _log_connection(self, client_name: str):
         logger.info(f"Connecting to existing {client_name} node at '{self._clean_uri}'.")
 
