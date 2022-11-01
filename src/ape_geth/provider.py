@@ -320,6 +320,45 @@ class GethProvider(Web3Provider, UpstreamProvider):
             frames = self.get_transaction_trace(txn_hash)
             return get_calltree_from_geth_trace(frames, **root_node_kwargs)
 
+    def send_call(self, txn: TransactionAPI, **kwargs) -> bytes:
+        if txn.sender:
+            return super().send_call(txn, **kwargs)
+
+        return self.trace_call(txn, **kwargs)
+
+    def trace_call(self, txn: TransactionAPI, **kwargs):
+        """
+        Make a call and get trace information at the same time.
+
+        Args:
+            txn (:class:`~ape.api.transactions.TransactionAPI`):
+                The transaction to estimate the gas for.
+            kwargs:
+                * ``state_overrides`` (Dict): Modify the state of the blockchain
+                  prior to estimation.
+        """
+
+        txn_dict = txn.dict()
+        for key, value in txn_dict.items():
+            if isinstance(value, int):
+                txn_dict[key] = to_hex(value)
+            elif isinstance(value, bytes):
+                txn_dict[key] = add_0x_prefix(HexStr(HexBytes(value).hex()))
+
+        block_id = kwargs.get("block_identifier") or "latest"
+        arguments = [txn_dict, block_id]
+        state_overrides = kwargs.get("state_overrides")
+        if state_overrides:
+            arguments.append(state_overrides)
+
+        result = self._make_request("debug_traceCall", arguments)
+        return_value = result.get("returnValue", b"")
+        if return_value and isinstance(return_value, str):
+            # Decoding ABI types expects bytes (similar to `send_call()` return).
+            return_value = HexBytes(return_value)
+
+        return return_value
+
     def _log_connection(self, client_name: str):
         logger.info(f"Connecting to existing {client_name} node at '{self._clean_uri}'.")
 
