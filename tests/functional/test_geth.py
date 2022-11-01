@@ -170,7 +170,6 @@ def test_get_call_tree(mocker, mock_web3, geth_provider):
     # Inject mock trace data so the geth traces works.
     mock_response_collector = mocker.patch("ape_geth.provider.ijson")
     mock_response_collector.sendable_list.return_value = TRACE_RESPONSE
-
     result = geth_provider.get_call_tree(TRANSACTION_HASH)
     actual = repr(result)
     expected = f"CALL: {RECEIPT_DATA['to']} [999 gas]"
