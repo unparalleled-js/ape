@@ -4,7 +4,8 @@ from typing import Any, Dict, Iterator, List, Optional, Union
 
 import ijson  # type: ignore
 import requests
-from eth_utils import to_wei
+from eth_typing import HexStr
+from eth_utils import add_0x_prefix, to_hex, to_wei
 from evm_trace import (
     CallTreeNode,
     CallType,
@@ -18,6 +19,7 @@ from geth.accounts import ensure_account_exists  # type: ignore
 from geth.chain import initialize_chain  # type: ignore
 from geth.process import BaseGethProcess  # type: ignore
 from geth.wrapper import construct_test_chain_kwargs  # type: ignore
+from hexbytes import HexBytes
 from pydantic import Extra, PositiveInt
 from requests.exceptions import ConnectionError
 from web3 import HTTPProvider, Web3
@@ -27,7 +29,7 @@ from web3.middleware import geth_poa_middleware
 from web3.middleware.validation import MAX_EXTRADATA_LENGTH
 from yarl import URL
 
-from ape.api import PluginConfig, UpstreamProvider, Web3Provider
+from ape.api import PluginConfig, TransactionAPI, UpstreamProvider, Web3Provider
 from ape.api.networks import LOCAL_NETWORK_NAME
 from ape.exceptions import APINotImplementedError, ProviderError
 from ape.logging import logger
