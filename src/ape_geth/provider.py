@@ -352,8 +352,8 @@ class GethProvider(Web3Provider, UpstreamProvider):
             arguments.append(state_overrides)
 
         result = self._make_request("debug_traceCall", arguments)
-        return_value = result.get("returnValue", b"")
-        if return_value and isinstance(return_value, str):
+        return_value = result.get("returnValue") or b""
+        if isinstance(return_value, str):
             # Decoding ABI types expects bytes (similar to `send_call()` return).
             return_value = HexBytes(return_value)
 
