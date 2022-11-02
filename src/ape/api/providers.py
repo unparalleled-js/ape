@@ -13,8 +13,10 @@ from signal import SIGINT, SIGTERM, signal
 from subprocess import PIPE, Popen
 from typing import Any, Dict, Iterator, List, Optional, cast
 
+from eth_tester.exceptions import TransactionFailed  # type: ignore
 from eth_typing import HexStr
 from eth_utils import add_0x_prefix, is_hex
+from eth_utils.exceptions import ValidationError
 from evm_trace import CallTreeNode, TraceFrame
 from hexbytes import HexBytes
 from pydantic import Field, root_validator, validator
@@ -33,6 +35,7 @@ from ape.exceptions import (
     APINotImplementedError,
     BlockNotFoundError,
     ContractLogicError,
+    NonceTooLowError,
     ProviderError,
     ProviderNotConnectedError,
     RPCTimeoutError,
@@ -550,9 +553,10 @@ class ProviderAPI(BaseInterfaceModel):
             if message == "execution reverted":
                 # Reverted without an error message
                 raise ContractLogicError()
+            elif message.startswith("execution reverted: "):
+                message = message.replace("execution reverted: ", "")
 
             return ContractLogicError(revert_message=message)
-
         if not len(exception.args):
             return VirtualMachineError(base_err=exception)
 
@@ -563,6 +567,8 @@ class ProviderAPI(BaseInterfaceModel):
         err_msg = err_data.get("message")
         if not err_msg:
             return VirtualMachineError(base_err=exception)
+        elif "nonce too low" in err_msg.lower():
+            raise NonceTooLowError()
 
         return VirtualMachineError(message=str(err_msg), code=err_data.get("code"))
 
@@ -717,6 +723,9 @@ class Web3Provider(ProviderAPI, ABC):
         txn_dict = txn.dict()
         try:
             block_id = kwargs.pop("block_identifier", None)
+            if txn_dict.get("gas") == "auto":
+                txn_dict.pop("gas")
+
             txn_params = cast(TxParams, txn_dict)
             return self.web3.eth.estimate_gas(txn_params, block_identifier=block_id)
         except ValueError as err:
@@ -842,7 +851,8 @@ class Web3Provider(ProviderAPI, ABC):
         try:
             block_id = kwargs.pop("block_identifier", None)
             state = kwargs.pop("state_override", None)
-            return self.web3.eth.call(txn.dict(), block_id, state)  # type: ignore
+            tx_params = cast(TxParams, txn.dict())
+            return self.web3.eth.call(tx_params, block_id, state)
 
         except ValueError as err:
             raise self.get_virtual_machine_error(err) from err
@@ -953,7 +963,16 @@ class Web3Provider(ProviderAPI, ABC):
         )
 
         receipt = self.get_receipt(txn_hash.hex(), required_confirmations=required_confirmations)
-        receipt.raise_for_status()
+        if receipt.failed:
+            txn_dict = receipt.transaction.dict()
+            txn_params = cast(TxParams, txn_dict)
+
+            # Replay txn to get revert reason
+            try:
+                self.web3.eth.call(txn_params)
+            except Exception as err:
+                raise self.get_virtual_machine_error(err) from err
+
         logger.info(f"Confirmed {receipt.txn_hash} (total fees paid = {receipt.total_fees_paid})")
         self.chain_manager.account_history.append(receipt)
         return receipt

@@ -27,6 +27,16 @@ class AccountsError(ApeException):
     """
 
 
+class NonceTooLowError(AccountsError):
+    """
+    Raised when a nonce is too low.
+    """
+
+    def __init__(self, nonce: Optional[int] = None):
+        message = f"Nonce '{nonce}' too low." if nonce is not None else "Nonce too low."
+        super().__init__(message)
+
+
 class AliasAlreadyInUseError(AccountsError):
     """
     Raised when attempting to add an account using an alias

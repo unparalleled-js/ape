@@ -7,7 +7,13 @@ from eth_account import Account
 
 from ape.api.address import BaseAddress
 from ape.api.transactions import ReceiptAPI, TransactionAPI
-from ape.exceptions import AccountsError, AliasAlreadyInUseError, SignatureError, TransactionError
+from ape.exceptions import (
+    AccountsError,
+    AliasAlreadyInUseError,
+    NonceTooLowError,
+    SignatureError,
+    TransactionError,
+)
 from ape.logging import logger
 from ape.types import AddressType, MessageSignature, SignableMessage, TransactionSignature
 from ape.types.signatures import _Signature
@@ -261,7 +267,7 @@ class AccountAPI(BaseInterfaceModel, BaseAddress):
         if txn.nonce is None:
             txn.nonce = self.nonce
         elif txn.nonce < self.nonce:
-            raise AccountsError("Invalid nonce, will not publish.")
+            raise NonceTooLowError(txn.nonce)
 
         txn = self.provider.prepare_transaction(txn)
 
