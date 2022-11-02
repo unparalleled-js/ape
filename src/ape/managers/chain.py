@@ -334,6 +334,9 @@ class AccountHistory(BaseManager):
     # Faciliates faster look-ups.
     _hash_to_receipt_map: Dict[str, ReceiptAPI] = {}
 
+    # For tracking calls made in a local session.
+    _local_calls: Dict[str, Dict] = {}
+
     def __getitem__(self, address: Union[BaseAddress, AddressType, str]) -> List[ReceiptAPI]:
         """
         Get the list of transactions from the active session for the given address.

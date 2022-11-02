@@ -167,6 +167,7 @@ class PytestApeRunner(ManagerAccessMixin):
                 )
                 return
 
+            self.receipt_capture._capture_calls()
             gas_report = self.receipt_capture.gas_report
             if gas_report:
                 tables = parse_gas_table(gas_report)

@@ -449,7 +449,7 @@ class ProviderAPI(BaseInterfaceModel):
     @raises_not_implemented
     def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         """
-        Provide a detailed description of opcodes.
+        Get a detailed description of opcodes used in a transaction's execution.
 
         Args:
             txn_hash (str): The hash of a transaction to trace.

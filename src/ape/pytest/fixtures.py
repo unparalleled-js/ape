@@ -182,28 +182,35 @@ class ReceiptCapture(ManagerAccessMixin):
         # Merge-in the receipt's gas report with everything so far.
         call_tree = receipt.call_tree
         do_track_gas = self.config_wrapper.track_gas if track_gas is None else track_gas
-        exclusions = self.config_wrapper.gas_exclusions
-        if exclusions:
-            contract_address = receipt.receiver
-            contract_type = self.chain_manager.contracts[contract_address]
-            contract_name = contract_type.name
-            method_called = receipt.method_called
-            method_name = method_called.name if method_called else None
-
         if do_track_gas and call_tree:
-            parser = CallTraceParser(receipt)
-            for exclusion in exclusions:
-                if contract_name and self._exclude_from_gas_report(contract_name, method_name):
-                    return
-
-            # Update the gas report using this receipt
-            gas_report = parser._get_rich_gas_report(
-                call_tree, exclude=self.config_wrapper.gas_exclusions
+            self._update_gas_report(
+                call_tree,
+                receipt.receiever,
+                transaction_hash,
+                sender=receipt.sender,
             )
-            if self.gas_report:
-                self.gas_report = merge_reports(self.gas_report, gas_report)
-            else:
-                self.gas_report = gas_report
+
+    def _update_gas_report(
+        self,
+        call_tree,
+        contract_address,
+        transaction_hash: str,
+        sender: Optional[str] = None,
+    ):
+        parser = CallTraceParser(transaction_hash, sender_address=sender)
+        exclusions = self.config_wrapper.gas_exclusions
+        for exclusion in exclusions:
+            if contract_name and self._exclude_from_gas_report(contract_name, method_name):
+                return
+
+        # Update the gas report using this receipt
+        gas_report = parser._get_rich_gas_report(
+            call_tree, exclude=self.config_wrapper.gas_exclusions
+        )
+        if self.gas_report:
+            self.gas_report = merge_reports(self.gas_report, gas_report)
+        else:
+            self.gas_report = gas_report
 
     @allow_disconnected
     def _get_block_number(self) -> Optional[int]:
@@ -228,6 +235,18 @@ class ReceiptCapture(ManagerAccessMixin):
                 return True
 
         return False
+
+    def _capture_calls(self):
+        """
+        A helper method for automatically including calls in gas report.
+        """
+        if not self.config_wrapper.track_gas:
+            return
+
+        for txn_hash, data in self.chain_manager.account_history._local_calls.items():
+            call_tree = self.provider.get_call_tree(txn_hash)
+            breakpoint()
+            self._update_gas_report(call_tree, None, txn_hash)
 
 
 def _build_report(report: Dict, contract: str, method: str, usages: List) -> Dict:

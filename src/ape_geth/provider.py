@@ -286,20 +286,28 @@ class GethProvider(Web3Provider, UpstreamProvider):
             yield TraceFrame(**frame)
 
     def get_call_tree(self, txn_hash: str, **root_node_kwargs) -> CallTreeNode:
-        def _get_call_tree_from_parity():
-            result = self._make_request("trace_transaction", [txn_hash])
-            if not result:
-                raise ProviderError(f"Failed to get trace for '{txn_hash}'.")
+        if txn_hash in self.chain_manager.account_history._local_calls:
+            # Was from a call
+            txn_data = self.chain_manager.account_history._local_calls[txn_hash]
+            call_trace_result = self._get_call_trace(txn_data)
 
-            traces = ParityTraceList.parse_obj(result)
-            return get_calltree_from_parity_trace(traces)
+            frames = call_trace_result.get("structLogs", [])
+            frame_object_generator = (TraceFrame(**f) for f in frames)
+            breakpoint()
+
+            root_node_kwargs = root_node_kwargs or {
+                "gas_cost": call_trace_result.get("gasUsed"),
+                "call_type": CallType.CALL,
+                "value": 0,
+            }
+            return get_calltree_from_geth_trace(frame_object_generator, **root_node_kwargs)
 
         if "erigon" in self.client_version.lower():
-            return _get_call_tree_from_parity()
+            return self._get_call_tree_from_parity()
 
         try:
             # Try the Parity traces first, in case node client supports it.
-            return _get_call_tree_from_parity()
+            return self._get_call_tree_from_parity(txn_hash)
         except (ValueError, APINotImplementedError, ProviderError):
             if not root_node_kwargs:
                 receipt = self.get_receipt(txn_hash)
@@ -320,44 +328,36 @@ class GethProvider(Web3Provider, UpstreamProvider):
             frames = self.get_transaction_trace(txn_hash)
             return get_calltree_from_geth_trace(frames, **root_node_kwargs)
 
-    def send_call(self, txn: TransactionAPI, **kwargs) -> bytes:
-        if txn.sender:
-            return super().send_call(txn, **kwargs)
+    def _get_call_tree_from_parity(self, txn_hash: str):
+        result = self._make_request("trace_transaction", [txn_hash])
+        if not result:
+            raise ProviderError(f"Failed to get trace for '{txn_hash}'.")
 
-        return self.trace_call(txn, **kwargs)
+        traces = ParityTraceList.parse_obj(result)
+        return get_calltree_from_parity_trace(traces)
 
-    def trace_call(self, txn: TransactionAPI, **kwargs):
-        """
-        Make a call and get trace information at the same time.
-
-        Args:
-            txn (:class:`~ape.api.transactions.TransactionAPI`):
-                The transaction to estimate the gas for.
-            kwargs:
-                * ``state_overrides`` (Dict): Modify the state of the blockchain
-                  prior to estimation.
-        """
-
-        txn_dict = txn.dict()
-        for key, value in txn_dict.items():
+    def _get_call_trace(self, txn: Dict, **kwargs) -> Dict:
+        for key, value in txn.items():
             if isinstance(value, int):
-                txn_dict[key] = to_hex(value)
+                txn[key] = to_hex(value)
             elif isinstance(value, bytes):
-                txn_dict[key] = add_0x_prefix(HexStr(HexBytes(value).hex()))
+                txn[key] = add_0x_prefix(HexStr(HexBytes(value).hex()))
 
         block_id = kwargs.get("block_identifier") or "latest"
-        arguments = [txn_dict, block_id]
+        arguments = [txn, block_id]
         state_overrides = kwargs.get("state_overrides")
         if state_overrides:
             arguments.append(state_overrides)
 
-        result = self._make_request("debug_traceCall", arguments)
-        return_value = result.get("returnValue") or b""
-        if isinstance(return_value, str):
-            # Decoding ABI types expects bytes (similar to `send_call()` return).
-            return_value = HexBytes(return_value)
+        return self._make_request("debug_traceCall", arguments)
 
-        return return_value
+    def send_call(self, txn: TransactionAPI, **kwargs) -> bytes:
+        if not txn.sender and self.provider.network.name == LOCAL_NETWORK_NAME:
+            # Track read-only calls for potential trace aggregation at the end of the session.
+            #  (e.g. showing gas reports at the end of the project's tests).
+            self.chain_manager.account_history._local_calls[txn.txn_hash.hex()] = [txn.dict()]
+
+        return super().send_call(txn, **kwargs)
 
     def _log_connection(self, client_name: str):
         logger.info(f"Connecting to existing {client_name} node at '{self._clean_uri}'.")
