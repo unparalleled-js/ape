@@ -29,9 +29,6 @@ jobs:
             GETH_VERSION=1.10.26
             DEST=$RUNNER_TOOL_CACHE/geth/
 
-            ls $RUNNER_TOOL_CACHE/geth/
-            ls $RUNNER_TOOL_CACHE/geth/$GETH_VERSION/
-
             # if [ ! -e geth-versions/geth-$GETH_VERSION/go-ethereum-$GETH_VERSION/build/bin/geth ] ; then
             mkdir -p $HOME/.ethash
             mkdir -p geth-versions/geth-$GETH_VERSION
@@ -41,8 +38,8 @@ jobs:
             cd go-ethereum-$GETH_VERSION
             make geth
 
-            mkdir -p /opt/hostedtoolcache/geth/$GETH_VERSION/bin/
             cp ./build/bin/geth $RUNNER_TOOL_CACHE
+            which geth
             geth makedag 0 $HOME/.ethash
             # fi
 
