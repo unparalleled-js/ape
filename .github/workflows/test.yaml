@@ -29,6 +29,9 @@ jobs:
             GETH_VERSION=1.10.26
             DEST=$RUNNER_TOOL_CACHE/geth/
 
+            echo $PATH
+            exit 69
+
             # if [ ! -e geth-versions/geth-$GETH_VERSION/go-ethereum-$GETH_VERSION/build/bin/geth ] ; then
             mkdir -p $HOME/.ethash
             mkdir -p geth-versions/geth-$GETH_VERSION
