@@ -8,7 +8,7 @@ jobs:
 
         strategy:
             matrix:
-                os: [ubuntu-latest]   # eventually add `windows-latest`
+                os: [macos-latest]   # eventually add `windows-latest`
                 python-version: [3.9]
 
         env:
@@ -41,6 +41,7 @@ jobs:
             cd go-ethereum-$GETH_VERSION
             make geth
             cp ./build/bin/geth $HOME/.local/bin
+            geth version
 
         - name: Install Dependencies
           run: |
