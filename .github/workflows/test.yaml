@@ -50,7 +50,4 @@ jobs:
             pip install .[test]
 
         - name: Run Tests
-          run: pytest tests/functional -m "not fuzzing" -s --cov=src -n auto
-
-        - name: Run Tests
-          run: pytest tests/integration -m "not fuzzing" -s --cov=src -n auto
+          run: pytest -m "not fuzzing" -s --cov=src -n auto
