@@ -27,21 +27,14 @@ jobs:
         - name: Install Geth
           run: |
             GETH_VERSION=1.10.26
-            DEST=$RUNNER_TOOL_CACHE/geth/
-
-            # if [ ! -e geth-versions/geth-$GETH_VERSION/go-ethereum-$GETH_VERSION/build/bin/geth ] ; then
             mkdir -p $HOME/.ethash
-            mkdir -p geth-versions/geth-$GETH_VERSION
-            cd geth-versions/geth-$GETH_VERSION
+            mkdir -p $HOME/.local/bin
             wget -O geth.tar.gz "https://github.com/ethereum/go-ethereum/archive/v$GETH_VERSION.tar.gz"
             tar -zxvf geth.tar.gz
             cd go-ethereum-$GETH_VERSION
             make geth
-
             cp ./build/bin/geth $HOME/.local/bin
-            which geth
             geth makedag 0 $HOME/.ethash
-            # fi
 
         - name: Install Dependencies
           run: |
