@@ -27,6 +27,10 @@ jobs:
         - name: Install Geth
           run: |
             GETH_VERSION=1.10.26
+            DEST=$RUNNER_TOOL_CACHE/geth/
+
+            ls $RUNNER_TOOL_CACHE/geth/
+            ls $RUNNER_TOOL_CACHE/geth/$GETH_VERSION/
 
             # if [ ! -e geth-versions/geth-$GETH_VERSION/go-ethereum-$GETH_VERSION/build/bin/geth ] ; then
             mkdir -p $HOME/.ethash
