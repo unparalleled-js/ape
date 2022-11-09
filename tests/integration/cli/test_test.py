@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from ape.pytest.fixtures import PytestApeFixtures
-from tests.conftest import geth_process_test
+from tests.conftest import GETH_URI, geth_process_test
 from tests.integration.cli.utils import skip_projects_except
 
 BASE_PROJECTS_PATH = Path(__file__).parent / "projects"
@@ -30,12 +30,12 @@ EXPECTED_GAS_REPORT = rf"""
   transfer              1   50911   50911   50911    50911
 {TOKEN_B_GAS_REPORT}
 """
-
-
-@pytest.fixture(autouse=True)
-def connection(networks):
-    with networks.ethereum.local.use_default_provider():
-        yield
+GETH_LOCAL_CONFIG = f"""
+geth:
+  ethereum:
+    local:
+      uri: {GETH_URI}
+"""
 
 
 @pytest.fixture
@@ -80,7 +80,18 @@ def run_gas_test(result, expected_number_passed: int, expected_report: str = EXP
     start_index = gas_header_line_index + 1
     end_index = start_index + len(expected)
     actual = [x.rstrip() for x in result.outlines[start_index:end_index]]
-    assert len(actual) == len(expected)
+    assert "WARNING: No gas usage data found." not in actual, "Gas data missing!"
+
+    actual_len = len(actual)
+    expected_len = len(expected)
+
+    if actual_len > expected_len:
+        remainder = "\n".join(actual[expected_len:])
+        pytest.xfail(f"Actual contains more than expected:\n{remainder}")
+    elif expected_len > actual_len:
+        remainder = "\n".join(expected[actual_len:])
+        pytest.xfail(f"Expected contains more than actual:\n{remainder}")
+
     for actual_line, expected_line in zip(actual, expected):
         assert actual_line == expected_line
 
@@ -127,29 +138,34 @@ class TestGeth:
     Tests using ``ape-geth`` provider. Geth supports more testing features,
     such as tracing.
 
-    **NOTE**: These tests are placed in a class for ``pytest-xdist`` scoping reasons.
+    **NOTE**: These tests are placed in a class for scoping reasons.
     """
+
+    @pytest.fixture(autouse=True, scope="class")
+    def connected_to_geth(self, networks):
+        if not networks.active_provider or networks.provider.name != "geth":
+            with networks.ethereum.local.use_provider("geth", provider_settings={"uri": GETH_URI}):
+                yield
 
     @geth_process_test
     @skip_projects_except("geth")
-    def test_gas_flag_in_tests(self, networks, setup_pytester, project, pytester):
-        settings = {"geth": {"ethereum": {"local": {"uri": "http://127.0.0.1:5005"}}}}
+    def test_gas_flag_in_tests(self, setup_pytester, project, pytester):
         expected_test_passes = setup_pytester(project.path.name)
-        with networks.ethereum.local.use_default_provider(provider_settings=settings):
-            result = pytester.runpytest("--gas")
-            run_gas_test(result, expected_test_passes)
+        result = pytester.runpytest("--gas")
+        run_gas_test(result, expected_test_passes)
 
     @geth_process_test
     @skip_projects_except("geth")
     def test_gas_flag_set_in_config(self, setup_pytester, project, pytester, switch_config):
         expected_test_passes = setup_pytester(project.path.name)
-        config_content = """
+        config_content = f"""
         geth:
           ethereum:
             local:
-              uri: http://127.0.0.1:5001
+              uri: {GETH_URI}
 
         test:
+          disconnect_providers_after: false
           gas:
             show: true
         """
@@ -176,13 +192,14 @@ class TestGeth:
         line = "\n  fooAndBar               1   23430   23430   23430    23430"
         expected = EXPECTED_GAS_REPORT.replace(line, "")
         expected = expected.replace(TOKEN_B_GAS_REPORT, "")
-        config_content = r"""
+        config_content = rf"""
         geth:
           ethereum:
             local:
-              uri: http://127.0.0.1:5001
+              uri: {GETH_URI}
 
         test:
+          disconnect_providers_after: false
           gas:
             exclude:
               - method_name: fooAndBar
@@ -198,8 +215,14 @@ class TestGeth:
         self, setup_pytester, project, pytester, switch_config
     ):
         expected_test_passes = setup_pytester(project.path.name)
-        config_content = """
+        config_content = f"""
+        geth:
+          ethereum:
+            local:
+              uri: {GETH_URI}
+
         test:
+          disconnect_providers_after: false
           transaction_tracing: false
         """
         with switch_config(project, config_content):

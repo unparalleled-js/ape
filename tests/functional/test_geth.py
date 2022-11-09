@@ -15,18 +15,11 @@ from ape.exceptions import (
 )
 from ape_ethereum.ecosystem import Block
 from ape_geth.provider import Geth
-from tests.conftest import geth_process_test
+from tests.conftest import GETH_URI, geth_process_test
 from tests.functional.conftest import RAW_VYPER_CONTRACT_TYPE
 from tests.functional.data.python import TRACE_RESPONSE
 
 TRANSACTION_HASH = "0x053cba5c12172654d894f66d5670bab6215517a94189a9ffc09bc40a589ec04d"
-URI = "http://127.0.0.1:5550"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def geth(networks):
-    with networks.ethereum.local.use_provider("geth", provider_settings={"uri": URI}) as provider:
-        yield provider
 
 
 @geth_process_test
@@ -56,7 +49,7 @@ def parity_trace_response():
 
 @geth_process_test
 def test_uri(geth):
-    assert geth.uri == URI
+    assert geth.uri == GETH_URI
 
 
 @geth_process_test

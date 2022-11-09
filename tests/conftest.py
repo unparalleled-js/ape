@@ -10,7 +10,7 @@ import yaml
 from click.testing import CliRunner
 
 import ape
-from ape.exceptions import APINotImplementedError, UnknownSnapshotError
+from ape.exceptions import APINotImplementedError, ProviderNotConnectedError, UnknownSnapshotError
 from ape.managers.config import CONFIG_FILE_NAME
 
 # NOTE: Ensure that we don't use local paths for these
@@ -20,6 +20,7 @@ ape.config.PROJECT_FOLDER = Path(mkdtemp()).resolve()
 # Needed to test tracing support in core `ape test` command.
 pytest_plugins = ["pytester"]
 geth_process_test = pytest.mark.xdist_group(name="geth-tests")
+GETH_URI = "http://127.0.0.1:5550"
 
 
 @pytest.fixture(autouse=True)
@@ -154,20 +155,38 @@ def eth_tester_provider(networks_connected_to_tester):
 
 
 @pytest.fixture(autouse=True)
-def isolation(chain, eth_tester_provider):
+def isolation(chain):
+    if ape.networks.active_provider is None or ape.networks.provider.name == "geth":
+        # Isolation requires provider connected at start of test
+        # yield still required so that fixture is always an iterator.
+        yield
+        return
+
+    init_network_name = chain.provider.network.name
+    init_provider_name = chain.provider.name
+
     try:
         snapshot = chain.snapshot()
     except APINotImplementedError:
+        # Provider not used or connected in test.
         snapshot = None
 
     yield
 
-    if snapshot is not None:
-        try:
-            chain.restore(snapshot)
-        except UnknownSnapshotError:
-            # Assume snapshot removed for testing reasons
-            pass
+    if (
+        snapshot is None
+        or ape.networks.active_provider is None
+        or chain.provider.network.name != init_network_name
+        or chain.provider.name != init_provider_name
+    ):
+        return
+
+    try:
+        chain.restore(snapshot)
+    except UnknownSnapshotError:
+        # Assume snapshot removed for testing reasons
+        # or the provider was not needed to be connected for the test.
+        pass
 
 
 @pytest.fixture(scope="session")
@@ -197,3 +216,16 @@ def empty_data_folder():
     ape.config.DATA_FOLDER = Path(mkdtemp()).resolve()
     yield
     ape.config.DATA_FOLDER = current_data_folder
+
+
+@pytest.fixture(scope="session")
+def geth(networks):
+    """
+    Placed in session test so it happens early enough
+    for integration tests to make use of existing connection.
+    """
+
+    with networks.ethereum.local.use_provider(
+        "geth", provider_settings={"uri": GETH_URI}
+    ) as provider:
+        yield provider

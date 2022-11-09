@@ -360,8 +360,12 @@ class GethDev(TestProviderAPI, BaseGethProvider):
             block_number_hex_str = add_0x_prefix(HexStr(snapshot_id))
             block_number_int = int(snapshot_id, 16)
 
-        if block_number_int == self.get_block("latest").number:
+        current_block = self.get_block("latest").number
+        if block_number_int == current_block:
             # Head is already at this block.
+            return
+        elif block_number_int > block_number_int:
+            logger.error("Unable to set head to future block.")
             return
 
         self._make_request("debug_setHead", [block_number_hex_str])

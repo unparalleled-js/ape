@@ -147,7 +147,7 @@ class PytestApeRunner(ManagerAccessMixin):
         outcome = yield
 
         # Only start provider if collected tests.
-        if not outcome.get_result() and self._provider_context.provider.is_connected:
+        if not outcome.get_result():
             self._provider_context.push_provider()
             self._provider_is_connected = True
 
