@@ -10,7 +10,7 @@ import yaml
 from click.testing import CliRunner
 
 import ape
-from ape.exceptions import APINotImplementedError, ProviderNotConnectedError, UnknownSnapshotError
+from ape.exceptions import APINotImplementedError, UnknownSnapshotError
 from ape.managers.config import CONFIG_FILE_NAME
 
 # NOTE: Ensure that we don't use local paths for these
