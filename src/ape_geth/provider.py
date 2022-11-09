@@ -351,13 +351,20 @@ class GethDev(TestProviderAPI, BaseGethProvider):
 
     def revert(self, snapshot_id: SnapshotID):
         if isinstance(snapshot_id, int):
-            block_number = str(to_hex(snapshot_id))
+            block_number_int = snapshot_id
+            block_number_hex_str = str(to_hex(snapshot_id))
         elif isinstance(snapshot_id, bytes):
-            block_number = str(add_0x_prefix(HexStr(snapshot_id.hex())))
+            block_number_hex_str = add_0x_prefix(HexStr(snapshot_id.hex()))
+            block_number_int = int(block_number_hex_str, 16)
         else:
-            block_number = str(snapshot_id)
+            block_number_hex_str = add_0x_prefix(HexStr(snapshot_id))
+            block_number_int = int(snapshot_id, 16)
 
-        self._make_request("debug_setHead", [block_number])
+        if block_number_int == self.get_block("latest").number:
+            # Head is already at this block.
+            return
+
+        self._make_request("debug_setHead", [block_number_hex_str])
 
     def snapshot(self) -> SnapshotID:
         return self.get_block("latest").number or 0
