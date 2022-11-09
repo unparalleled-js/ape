@@ -122,7 +122,7 @@ def test_gas_flag_when_not_supported(setup_pytester, project, pytester):
     ) in "\n".join(result.outlines)
 
 
-class ApeTestGethTests:
+class TestGeth:
     """
     Tests using ``ape-geth`` provider. Geth supports more testing features,
     such as tracing.
@@ -144,15 +144,15 @@ class ApeTestGethTests:
     def test_gas_flag_set_in_config(self, setup_pytester, project, pytester, switch_config):
         expected_test_passes = setup_pytester(project.path.name)
         config_content = """
-geth:
-  ethereum:
-    local:
-      uri: http://127.0.0.1:5001
+        geth:
+          ethereum:
+            local:
+              uri: http://127.0.0.1:5001
 
-test:
-  gas:
-    show: true
-    """
+        test:
+          gas:
+            show: true
+        """
 
         with switch_config(project, config_content):
             result = pytester.runpytest()
@@ -177,17 +177,17 @@ test:
         expected = EXPECTED_GAS_REPORT.replace(line, "")
         expected = expected.replace(TOKEN_B_GAS_REPORT, "")
         config_content = r"""
-    geth:
-      ethereum:
-        local:
-          uri: http://127.0.0.1:5001
+        geth:
+          ethereum:
+            local:
+              uri: http://127.0.0.1:5001
 
-    test:
-      gas:
-        exclude:
-          - method_name: fooAndBar
-          - contract_name: TokenB
-    """
+        test:
+          gas:
+            exclude:
+              - method_name: fooAndBar
+              - contract_name: TokenB
+        """
         with switch_config(project, config_content):
             result = pytester.runpytest("--gas")
             run_gas_test(result, expected_test_passes, expected_report=expected)
@@ -199,13 +199,13 @@ test:
     ):
         expected_test_passes = setup_pytester(project.path.name)
         config_content = """
-test:
-  transaction_tracing: false
+        test:
+          transaction_tracing: false
         """
         with switch_config(project, config_content):
             result = pytester.runpytest("--gas")
             result.assert_outcomes(passed=expected_test_passes), "\n".join(result.outlines)
-            assert "AASDF" in result.outlines
+            assert "WARNING: No gas usage data found." in result.outlines
 
     @geth_process_test
     @skip_projects_except("geth")

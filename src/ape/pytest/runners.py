@@ -156,26 +156,28 @@ class PytestApeRunner(ManagerAccessMixin):
         Add a section to terminal summary reporting.
         When ``--gas`` is active, outputs the gas profile report.
         """
-        if self.config_wrapper.track_gas:
-            terminalreporter.section("Gas Profile")
+        if not self.config_wrapper.track_gas:
+            return
 
-            if not self.provider.supports_tracing:
-                terminalreporter.write_line(
-                    f"{LogLevel.ERROR.name}: Provider '{self.provider.name}' does not support "
-                    f"transaction tracing and is unable to display a gas profile.",
-                    red=True,
-                )
-                return
+        terminalreporter.section("Gas Profile")
 
-            gas_report = self.receipt_capture.gas_report
-            if gas_report:
-                tables = parse_gas_table(gas_report)
-                rich_print(*tables)
-            else:
+        if not self.provider.supports_tracing:
+            terminalreporter.write_line(
+                f"{LogLevel.ERROR.name}: Provider '{self.provider.name}' does not support "
+                f"transaction tracing and is unable to display a gas profile.",
+                red=True,
+            )
+            return
 
-                terminalreporter.write_line(
-                    f"{LogLevel.WARNING.name}: No gas usage data found.", yellow=True
-                )
+        gas_report = self.receipt_capture.gas_report
+        if gas_report:
+            tables = parse_gas_table(gas_report)
+            rich_print(*tables)
+        else:
+
+            terminalreporter.write_line(
+                f"{LogLevel.WARNING.name}: No gas usage data found.", yellow=True
+            )
 
     def pytest_unconfigure(self):
         if self._provider_is_connected and self.config_wrapper.disconnect_providers_after:
