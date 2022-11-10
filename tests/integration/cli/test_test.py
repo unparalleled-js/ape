@@ -133,18 +133,9 @@ def test_gas_flag_when_not_supported(setup_pytester, project, pytester):
     ) in "\n".join(result.outlines)
 
 
-@pytest.fixture
-def connected_to_geth(networks):
-    if not networks.active_provider or networks.provider.name != "geth":
-        with networks.ethereum.local.use_provider("geth", provider_settings={"uri": GETH_URI}):
-            yield
-    else:
-        yield
-
-
 @geth_process_test
 @skip_projects_except("geth")
-def test_gas_flag_in_tests(connected_to_geth, setup_pytester, project, pytester):
+def test_gas_flag_in_tests(geth_provider, setup_pytester, project, pytester):
     expected_test_passes = setup_pytester(project.path.name)
     result = pytester.runpytest("--gas")
     run_gas_test(result, expected_test_passes)
@@ -153,7 +144,7 @@ def test_gas_flag_in_tests(connected_to_geth, setup_pytester, project, pytester)
 @geth_process_test
 @skip_projects_except("geth")
 def test_gas_flag_set_in_config(
-    connected_to_geth, setup_pytester, project, pytester, switch_config
+    geth_provider, setup_pytester, project, pytester, switch_config
 ):
     expected_test_passes = setup_pytester(project.path.name)
     config_content = f"""
@@ -176,7 +167,7 @@ def test_gas_flag_set_in_config(
 @geth_process_test
 @skip_projects_except("geth")
 def test_gas_flag_exclude_method_using_cli_option(
-    connected_to_geth, setup_pytester, project, pytester
+    geth_provider, setup_pytester, project, pytester
 ):
     expected_test_passes = setup_pytester(project.path.name)
     line = "\n  fooAndBar               1   23430   23430   23430    23430"
@@ -188,7 +179,7 @@ def test_gas_flag_exclude_method_using_cli_option(
 @geth_process_test
 @skip_projects_except("geth")
 def test_gas_flag_exclusions_set_in_config(
-    connected_to_geth, setup_pytester, project, pytester, switch_config
+    geth_provider, setup_pytester, project, pytester, switch_config
 ):
     expected_test_passes = setup_pytester(project.path.name)
     line = "\n  fooAndBar               1   23430   23430   23430    23430"
@@ -215,7 +206,7 @@ def test_gas_flag_exclusions_set_in_config(
 @geth_process_test
 @skip_projects_except("geth")
 def test_gas_report_when_tracing_disabled(
-    connected_to_geth, setup_pytester, project, pytester, switch_config
+    geth_provider, setup_pytester, project, pytester, switch_config
 ):
     expected_test_passes = setup_pytester(project.path.name)
     config_content = f"""
@@ -236,7 +227,7 @@ def test_gas_report_when_tracing_disabled(
 
 @geth_process_test
 @skip_projects_except("geth")
-def test_gas_flag_excluding_contracts(connected_to_geth, setup_pytester, project, pytester):
+def test_gas_flag_excluding_contracts(geth_provider, setup_pytester, project, pytester):
     expected_test_passes = setup_pytester(project.path.name)
     result = pytester.runpytest("--gas", "--gas-exclude", "TestContractVy,TokenA")
     run_gas_test(result, expected_test_passes, expected_report=TOKEN_B_GAS_REPORT)
