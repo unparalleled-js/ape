@@ -143,9 +143,7 @@ def test_gas_flag_in_tests(geth_provider, setup_pytester, project, pytester):
 
 @geth_process_test
 @skip_projects_except("geth")
-def test_gas_flag_set_in_config(
-    geth_provider, setup_pytester, project, pytester, switch_config
-):
+def test_gas_flag_set_in_config(geth_provider, setup_pytester, project, pytester, switch_config):
     expected_test_passes = setup_pytester(project.path.name)
     config_content = f"""
     geth:
@@ -166,9 +164,7 @@ def test_gas_flag_set_in_config(
 
 @geth_process_test
 @skip_projects_except("geth")
-def test_gas_flag_exclude_method_using_cli_option(
-    geth_provider, setup_pytester, project, pytester
-):
+def test_gas_flag_exclude_method_using_cli_option(geth_provider, setup_pytester, project, pytester):
     expected_test_passes = setup_pytester(project.path.name)
     line = "\n  fooAndBar               1   23430   23430   23430    23430"
     expected = EXPECTED_GAS_REPORT.replace(line, "")
