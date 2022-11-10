@@ -105,6 +105,7 @@ def run_gas_test(result, expected_number_passed: int, expected_report: str = EXP
 @geth_process_test
 @skip_projects_except("geth")
 def test_gas_flag_in_tests(geth_provider, setup_pytester, project, pytester):
+    assert project.TestContractVy
     expected_test_passes = setup_pytester(project.path.name)
     result = pytester.runpytest("--gas")
     run_gas_test(result, expected_test_passes)
