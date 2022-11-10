@@ -68,7 +68,11 @@ def setup_pytester(pytester):
 
 
 def run_gas_test(result, expected_number_passed: int, expected_report: str = EXPECTED_GAS_REPORT):
-    result.assert_outcomes(passed=expected_number_passed), "\n".join(result.outlines)
+    if not result.outlines:
+        raise AssertionError("Missing output")
+
+    output_str = "\n".join(result.outlines)
+    result.assert_outcomes(passed=expected_number_passed), f"Complete pytest output:\n{output_str}"
 
     gas_header_line_index = None
     for index, line in enumerate(result.outlines):
