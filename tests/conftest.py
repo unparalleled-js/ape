@@ -220,11 +220,6 @@ def empty_data_folder():
 
 @pytest.fixture(scope="session")
 def geth(networks):
-    """
-    Placed in session test so it happens early enough
-    for integration tests to make use of existing connection.
-    """
-
     with networks.ethereum.local.use_provider(
         "geth", provider_settings={"uri": GETH_URI}
     ) as provider:
