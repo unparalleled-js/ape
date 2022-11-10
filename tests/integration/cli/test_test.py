@@ -73,7 +73,6 @@ def run_gas_test(result, expected_number_passed: int, expected_report: str = EXP
 
     output_str = "\n".join(result.outlines)
     fail_message = f"Complete pytest output:\n{output_str}"
-    raise AssertionError(fail_message)
     result.assert_outcomes(passed=expected_number_passed), fail_message
 
     gas_header_line_index = None
@@ -105,11 +104,6 @@ def run_gas_test(result, expected_number_passed: int, expected_report: str = EXP
 @geth_process_test
 @skip_projects_except("geth")
 def test_gas_flag_in_tests(geth_provider, setup_pytester, project, pytester):
-
-    sources = ", ".join([c for c in project.contracts])
-    helpful = f"{project.path.name} - {sources} "
-    raise AssertionError(helpful)
-
     assert project.TestContractVy
     expected_test_passes = setup_pytester(project.path.name)
     result = pytester.runpytest("--gas")
