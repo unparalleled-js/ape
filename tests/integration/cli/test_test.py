@@ -72,7 +72,9 @@ def run_gas_test(result, expected_number_passed: int, expected_report: str = EXP
         raise AssertionError("Missing output")
 
     output_str = "\n".join(result.outlines)
-    result.assert_outcomes(passed=expected_number_passed), f"Complete pytest output:\n{output_str}"
+    fail_message = f"Complete pytest output:\n{output_str}"
+    raise AssertionError(fail_message)
+    result.assert_outcomes(passed=expected_number_passed), fail_message
 
     gas_header_line_index = None
     for index, line in enumerate(result.outlines):
