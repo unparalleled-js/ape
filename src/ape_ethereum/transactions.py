@@ -11,7 +11,6 @@ from eth_account._utils.legacy_transactions import (
 from eth_utils import decode_hex, encode_hex, keccak, to_int
 from ethpm_types import HexBytes
 from ethpm_types.abi import EventABI
-from evm_trace import CallTreeNode
 from pydantic import BaseModel, Field, root_validator, validator
 
 from ape.api import ReceiptAPI, TransactionAPI
@@ -151,7 +150,7 @@ class Receipt(ReceiptAPI):
         return self.status != TransactionStatusEnum.NO_ERROR
 
     @cached_property
-    def call_tree(self) -> Optional[CallTreeNode]:
+    def call_tree(self) -> Optional[Dict]:
         if not self.receiver:
             # Not an function invoke
             return None
@@ -172,14 +171,18 @@ class Receipt(ReceiptAPI):
 
         revert_message = None
 
-        if call_tree.failed:
+        if call_tree["failed"]:
             default_message = "reverted without message"
-            if not call_tree.returndata.hex().startswith(
-                "0x08c379a00000000000000000000000000000000000000000000000000000000000000020"
+            if (
+                not call_tree["returndata"]
+                .hex()
+                .startswith(
+                    "0x08c379a00000000000000000000000000000000000000000000000000000000000000020"
+                )
             ):
                 revert_message = default_message
             else:
-                decoded_result = decode(("string",), call_tree.returndata[4:])
+                decoded_result = decode(("string",), call_tree["returndata"][4:])
                 if len(decoded_result) == 1:
                     revert_message = f'reverted with message: "{decoded_result[0]}"'
                 else:

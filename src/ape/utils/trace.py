@@ -14,6 +14,7 @@ from evm_trace import CallTreeNode, CallType
 from evm_trace.display import TreeRepresentation
 from evm_trace.gas import merge_reports
 from hexbytes import HexBytes
+from pydantic import ValidationError
 from rich.box import SIMPLE
 from rich.table import Table
 from rich.tree import Tree
@@ -102,7 +103,7 @@ class CallTraceParser(ManagerAccessMixin):
     def _ecosystem(self) -> "EcosystemAPI":
         return self.provider.network.ecosystem
 
-    def parse_as_tree(self, call: CallTreeNode) -> Tree:
+    def parse_as_tree(self, call: Dict) -> Tree:
         """
         Create ``rich.Tree`` containing the nodes in a call trace
         for display purposes.
@@ -115,12 +116,12 @@ class CallTraceParser(ManagerAccessMixin):
             ``rich.Tree``: A rich tree from the ``rich`` library.
         """
 
-        address = self.provider.network.ecosystem.decode_address(call.address)
+        address = self.provider.network.ecosystem.decode_address(call["address"])
 
         # Collapse pre-compile address calls
         address_int = int(address, 16)
         if 1 <= address_int <= 9:
-            sub_trees = [self.parse_as_tree(c) for c in call.calls]
+            sub_trees = [self.parse_as_tree(c) for c in call["calls"]]
             if len(sub_trees) == 1:
                 return sub_trees[0]
 
@@ -131,7 +132,7 @@ class CallTraceParser(ManagerAccessMixin):
             return intermediary_node
 
         contract_type = self.chain_manager.contracts.get(address)
-        selector = call.calldata[:4]
+        selector = call["calldata"][:4]
         call_signature = ""
 
         def _dim_default_gas(call_sig: str) -> str:
@@ -147,7 +148,7 @@ class CallTraceParser(ManagerAccessMixin):
             method_abi = _get_method_abi(selector, contract_type)
 
             if method_abi:
-                raw_calldata = call.calldata[4:]
+                raw_calldata = call["calldata"][4:]
                 arguments = {
                     k: self.decode_value(v)
                     for k, v in self.decode_calldata(method_abi, raw_calldata).items()
@@ -156,8 +157,8 @@ class CallTraceParser(ManagerAccessMixin):
                 # The revert-message appears at the top of the trace output.
                 try:
                     return_value = (
-                        self.decode_returndata(method_abi, call.returndata)
-                        if not call.failed
+                        self.decode_returndata(method_abi, call["returndata"])
+                        if not call["failed"]
                         else None
                     )
                 except (DecodingError, InsufficientDataBytes):
@@ -170,55 +171,67 @@ class CallTraceParser(ManagerAccessMixin):
                         method_id,
                         arguments,
                         return_value,
-                        call.call_type,
+                        call["call_type"],
                         colors=self.colors,
                         _indent=self._indent,
                         _wrap_threshold=self._wrap_threshold,
                     )
                 )
-                if call.gas_cost:
-                    call_signature += f" [{TraceStyles.GAS_COST}][{call.gas_cost} gas][/]"
+                if call["gas_cost"]:
+                    call_signature += f" [{TraceStyles.GAS_COST}][{call['gas_cost']} gas][/]"
 
                 if self._verbose:
                     extra_info = {
                         "address": address,
-                        "value": call.value,
-                        "gas_limit": call.gas_limit,
-                        "call_type": call.call_type.value,
+                        "value": call["value"],
+                        "gas_limit": call["gas_limit"],
+                        "call_type": call["call_type"].value,
                     }
                     call_signature += f" {json.dumps(extra_info, indent=self._indent)}"
             elif contract_type.name and contract_id == contract_type.name:
                 # The case where we know the contract name but couldn't decipher the method ID,
                 #  such as an unsupported proxy or fallback.
-                call_signature = next(TreeRepresentation.make_tree(call)).title
-                call_signature = call_signature.replace(address, contract_id)
-                call_signature = _dim_default_gas(call_signature)
+
+                call_tree_node = None
+                try:
+                    # Attempt default EVM-style trace
+                    call_tree_node = CallTreeNode.construct(**call)
+                except ValidationError:
+                    pass
+
+                if call_tree_node is not None:
+                    call_signature = next(TreeRepresentation.make_tree(call_tree_node)).title
+                    call_signature = call_signature.replace(address, contract_id)
+                    call_signature = _dim_default_gas(call_signature)
         else:
             next_node: Optional[TreeRepresentation] = None
+
+            call_tree_node = None
             try:
-                # Use default representation
-                next_node = next(TreeRepresentation.make_tree(call))
-            except StopIteration:
+                # Attempt default EVM-style trace
+                call_tree_node = CallTreeNode.construct(**call)
+            except ValidationError:
                 pass
 
-            if next_node:
-                call_signature = _dim_default_gas(next_node.title)
+            if call_tree_node is not None:
+                next_node = next(TreeRepresentation.make_tree(call_tree_node), None)
+                if next_node:
+                    call_signature = _dim_default_gas(next_node.title)
+                else:
+                    # Only for mypy's sake. May never get here.
+                    call_signature = f"{address}.<{selector.hex()}>"
+                    if call["gas_cost"]:
+                        call_signature = (
+                            f"{call_signature} [{TraceStyles.GAS_COST}][{call['gas_cost']} gas][/]"
+                        )
 
-            else:
-                # Only for mypy's sake. May never get here.
-                call_signature = f"{address}.<{selector.hex()}>"
-                if call.gas_cost:
-                    call_signature = (
-                        f"{call_signature} [{TraceStyles.GAS_COST}][{call.gas_cost} gas][/]"
-                    )
-
-        if call.value:
-            eth_value = round(call.value / 10**18, 8)
+        if call["value"]:
+            eth_value = round(call["value"] / 10**18, 8)
             if eth_value:
                 call_signature += f" [{self.colors.VALUE}][{eth_value} value][/]"
 
         parent = Tree(call_signature, guide_style="dim")
-        for sub_call in call.calls:
+        for sub_call in call["calls"]:
             parent.add(self.parse_as_tree(sub_call))
 
         return parent
@@ -283,7 +296,7 @@ class CallTraceParser(ManagerAccessMixin):
 
         return checksum_address
 
-    def parse_as_gas_report(self, call: CallTreeNode) -> List[Table]:
+    def parse_as_gas_report(self, call: Dict) -> List[Table]:
         report = self._get_rich_gas_report(call)
         return parse_gas_table(report)
 
@@ -325,15 +338,15 @@ class CallTraceParser(ManagerAccessMixin):
         return address
 
     def _get_rich_gas_report(
-        self, calltree: CallTreeNode, exclude: Optional[List["ContractFunctionPath"]] = None
+        self, calltree: Dict, exclude: Optional[List["ContractFunctionPath"]] = None
     ) -> "GasReport":
         exclusions = exclude or []
-        sub_calls = calltree.calls
+        sub_calls = calltree["calls"]
         this_method = self._get_rich_gas_report
         exclude_arg = [exclusions for _ in sub_calls]
-        address = self.provider.network.ecosystem.decode_address(calltree.address)
+        address = self.provider.network.ecosystem.decode_address(calltree["address"])
         contract_type = self.chain_manager.contracts.get(address)
-        selector = calltree.calldata[:4]
+        selector = calltree["calldata"][:4]
         contract_id = self._get_contract_id(address, contract_type=contract_type, use_symbol=False)
 
         for exclusion in exclusions:
@@ -387,7 +400,9 @@ class CallTraceParser(ManagerAccessMixin):
             method_id = selector.hex()
 
         report = {
-            contract_id: {method_id: [calltree.gas_cost] if calltree.gas_cost is not None else []}
+            contract_id: {
+                method_id: [calltree["gas_cost"]] if calltree["gas_cost"] is not None else []
+            }
         }
         reports = [r for r in map(this_method, sub_calls, exclude_arg)]
         if len(reports) >= 1:
@@ -402,7 +417,7 @@ class _MethodTraceSignature:
     method_name: str
     arguments: Dict
     return_value: Any
-    call_type: CallType
+    call_type: str
     colors: Union[TraceStyles, Type[TraceStyles]] = TraceStyles
     _wrap_threshold: int = _DEFAULT_WRAP_THRESHOLD
     _indent: int = _DEFAULT_INDENT
@@ -412,7 +427,7 @@ class _MethodTraceSignature:
         method = f"[{TraceStyles.METHODS}]{self.method_name}[/]"
         call_path = f"{contract}.{method}"
 
-        if self.call_type == CallType.DELEGATECALL:
+        if self.call_type in (CallType.DELEGATECALL.value,):
             call_path = f"[orange](delegate)[/] {call_path}"
 
         arguments_str = self._build_arguments_str()

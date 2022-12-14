@@ -268,27 +268,27 @@ class BaseGethProvider(Web3Provider, ABC):
         self._web3 = None
         self._client_version = None
 
-    def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
+    def get_transaction_trace(self, txn_hash: str) -> Iterator[Dict]:
         frames = self._stream_request(
             "debug_traceTransaction", [txn_hash, {"enableMemory": True}], "result.structLogs.item"
         )
         for frame in frames:
-            yield TraceFrame(**frame)
+            yield TraceFrame(**frame).dict()
 
     def _get_transaction_trace_using_call_tracer(self, txn_hash: str) -> Dict:
         return self._make_request(
             "debug_traceTransaction", [txn_hash, {"enableMemory": True, "tracer": "callTracer"}]
         )
 
-    def get_call_tree(self, txn_hash: str) -> CallTreeNode:
+    def get_call_tree(self, txn_hash: str) -> Dict:
         if "erigon" in self.client_version.lower():
-            return self._get_parity_call_tree(txn_hash)
+            return self._get_parity_call_tree(txn_hash).dict()
 
         try:
             # Try the Parity traces first, in case node client supports it.
-            return self._get_parity_call_tree(txn_hash)
+            return self._get_parity_call_tree(txn_hash).dict()
         except (ValueError, APINotImplementedError, ProviderError):
-            return self._get_geth_call_tree(txn_hash)
+            return self._get_geth_call_tree(txn_hash).dict()
 
     def _get_parity_call_tree(self, txn_hash: str) -> CallTreeNode:
         result = self._make_request("trace_transaction", [txn_hash])
@@ -460,8 +460,8 @@ class GethDev(BaseGethProvider, TestProviderAPI):
 
         return return_value
 
-    def get_call_tree(self, txn_hash: str, **root_node_kwargs) -> CallTreeNode:
-        return self._get_geth_call_tree(txn_hash, **root_node_kwargs)
+    def get_call_tree(self, txn_hash: str, **root_node_kwargs) -> Dict:
+        return self._get_geth_call_tree(txn_hash, **root_node_kwargs).dict()
 
 
 class Geth(BaseGethProvider, UpstreamProvider):

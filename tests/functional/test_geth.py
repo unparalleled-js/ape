@@ -5,6 +5,7 @@ from typing import cast
 import pytest
 from eth_typing import HexStr
 from ethpm_types import ContractType
+from evm_trace import CallTreeNode
 
 from ape.contracts import ContractContainer
 from ape.exceptions import (
@@ -93,7 +94,8 @@ def test_get_call_tree(geth_provider, geth_contract, accounts):
     owner = accounts.test_accounts[-3]
     contract = owner.deploy(geth_contract, 0)
     receipt = contract.setNumber(10, sender=owner)
-    result = geth_provider.get_call_tree(receipt.txn_hash)
+    raw_result = geth_provider.get_call_tree(receipt.txn_hash)
+    result = CallTreeNode.parse_obj(raw_result)
     expected = rf"CALL: {contract.address}.<0x3fb5c1cb> \[\d+ gas\]"
     actual = repr(result)
     assert re.match(expected, actual)
@@ -102,7 +104,8 @@ def test_get_call_tree(geth_provider, geth_contract, accounts):
 def test_get_call_tree_erigon(mock_web3, mock_geth, parity_trace_response):
     mock_web3.client_version = "erigon_MOCK"
     mock_web3.provider.make_request.return_value = parity_trace_response
-    result = mock_geth.get_call_tree(TRANSACTION_HASH)
+    raw_result = mock_geth.get_call_tree(TRANSACTION_HASH)
+    result = CallTreeNode.parse_obj(raw_result)
     actual = repr(result)
     expected = r"CALL: 0xC17f2C69aE2E66FD87367E3260412EEfF637F70E.<0x96d373e5> \[\d+ gas\]"
     assert re.match(expected, actual)

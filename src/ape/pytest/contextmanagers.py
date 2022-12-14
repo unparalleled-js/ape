@@ -59,15 +59,15 @@ class RevertsContextManager:
         # To find a suitable line for inspecting dev messages, we must start at the revert and work
         # our way backwards. If the last frame's PC is in the PC map, the offending line is very
         # likely a 'raise' statement.
-        if trace[-1].pc in pcmap:
-            pc = trace[-1].pc
+        if trace[-1]["pc"] in pcmap:
+            pc = trace[-1]["pc"]
 
         # Otherwise we must traverse the trace backwards until we find our first suitable candidate.
         else:
             while len(trace) > 0:
                 frame = trace.pop()
-                if frame.pc in pcmap:
-                    pc = frame.pc
+                if frame["pc"] in pcmap:
+                    pc = frame["pc"]
                     break
 
         # We were unable to find a suitable PC that matched the compiler's map.

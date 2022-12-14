@@ -1,10 +1,9 @@
 import sys
 import time
-from typing import IO, TYPE_CHECKING, Any, Iterator, List, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 from ethpm_types import HexBytes
 from ethpm_types.abi import EventABI, MethodABI
-from evm_trace import TraceFrame
 from pydantic import validator
 from pydantic.fields import Field
 from tqdm import tqdm  # type: ignore
@@ -175,7 +174,7 @@ class ReceiptAPI(BaseInterfaceModel):
         return value
 
     @property
-    def call_tree(self) -> Optional[Any]:
+    def call_tree(self) -> Optional[Dict]:
         return None
 
     @property
@@ -207,7 +206,7 @@ class ReceiptAPI(BaseInterfaceModel):
         """
 
     @property
-    def trace(self) -> Iterator[TraceFrame]:
+    def trace(self) -> Iterator[Dict]:
         """
         The trace of the transaction, if available from your provider.
         """
@@ -326,7 +325,9 @@ class ReceiptAPI(BaseInterfaceModel):
         if not call_tree:
             return None
 
-        return self.chain_manager.contracts.lookup_method(call_tree.address, call_tree.calldata)
+        return self.chain_manager.contracts.lookup_method(
+            call_tree["address"], call_tree["calldata"]
+        )
 
     @property
     def return_value(self) -> Any:
@@ -342,7 +343,9 @@ class ReceiptAPI(BaseInterfaceModel):
         if not method_abi:
             return None
 
-        output = self.provider.network.ecosystem.decode_returndata(method_abi, call_tree.returndata)
+        output = self.provider.network.ecosystem.decode_returndata(
+            method_abi, call_tree["returndata"]
+        )
         if isinstance(output, tuple) and len(output) < 2:
             # NOTE: Two special cases
             output = output[0] if len(output) == 1 else None

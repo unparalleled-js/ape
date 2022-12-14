@@ -67,21 +67,21 @@ def local_call_tree(local_contracts):
         elif d["address"] == "c":
             d["address"] = local_contracts[2].address
 
-    new_dict = dict(LOCAL_CALL_TREE_DICT)
-    new_dict["address"] = local_contracts[0].address
+    call_tree = dict(LOCAL_CALL_TREE_DICT)
+    call_tree["address"] = local_contracts[0].address
 
     def set_all_addresses(d):
         set_address(d)
         for call in d["calls"]:
             set_all_addresses(call)
 
-    set_all_addresses(new_dict)
-    return CallTreeNode.parse_obj(new_dict)
+    set_all_addresses(call_tree)
+    return call_tree
 
 
 @pytest.fixture(scope="module")
 def mainnet_call_tree():
-    return CallTreeNode.parse_obj(MAINNET_CALL_TREE_DICT)
+    return MAINNET_CALL_TREE_DICT
 
 
 @pytest.fixture(params=("local", "mainnet"))

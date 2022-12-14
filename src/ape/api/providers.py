@@ -15,7 +15,6 @@ from typing import Any, Dict, Iterator, List, Optional, cast
 
 from eth_typing import HexStr
 from eth_utils import add_0x_prefix, is_hex, to_hex
-from evm_trace import CallTreeNode, TraceFrame
 from hexbytes import HexBytes
 from pydantic import Field, root_validator, validator
 from web3 import Web3
@@ -460,9 +459,7 @@ class ProviderAPI(BaseInterfaceModel):
         """
 
     @raises_not_implemented
-    def get_transaction_trace(  # type: ignore[empty-body]
-        self, txn_hash: str
-    ) -> Iterator[TraceFrame]:
+    def get_transaction_trace(self, txn_hash: str) -> Iterator[Dict]:  # type: ignore[empty-body]
         """
         Provide a detailed description of opcodes.
 
@@ -470,11 +467,11 @@ class ProviderAPI(BaseInterfaceModel):
             txn_hash (str): The hash of a transaction to trace.
 
         Returns:
-            Iterator(TraceFrame): Transaction execution trace object.
+            Iterator(Dict): Transaction execution trace object.
         """
 
     @raises_not_implemented
-    def get_call_tree(self, txn_hash: str) -> CallTreeNode:  # type: ignore[empty-body]
+    def get_call_tree(self, txn_hash: str) -> Dict:  # type: ignore[empty-body]
         """
         Create a tree structure of calls for a transaction.
 
@@ -482,7 +479,7 @@ class ProviderAPI(BaseInterfaceModel):
             txn_hash (str): The hash of a transaction to trace.
 
         Returns:
-            CallTreeNode: Transaction execution call-tree objects.
+            Dict: Transaction execution call-tree objects.
         """
 
     def prepare_transaction(self, txn: TransactionAPI) -> TransactionAPI:

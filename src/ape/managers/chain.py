@@ -1098,7 +1098,7 @@ class ReportManager(BaseManager):
 
     def append_gas(
         self,
-        call_tree: Any,
+        call_tree: Dict,
         contract_address: AddressType,
         sender: Optional[AddressType] = None,
         transaction_hash: Optional[str] = None,
