@@ -447,7 +447,7 @@ class GethDev(BaseGethProvider, TestProviderAPI):
             "returndata": return_value,
         }
 
-        call_tree = get_calltree_from_geth_trace(trace_frames, **root_node_kwargs)
+        call_tree = get_calltree_from_geth_trace(trace_frames, **root_node_kwargs).dict()
         receiver = txn.receiver
         if track_gas and call_tree and receiver is not None:
             # Gas report being collected, likely for showing a report

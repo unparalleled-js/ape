@@ -204,8 +204,6 @@ class CallTraceParser(ManagerAccessMixin):
                     call_signature = call_signature.replace(address, contract_id)
                     call_signature = _dim_default_gas(call_signature)
         else:
-            next_node: Optional[TreeRepresentation] = None
-
             call_tree_node = None
             try:
                 # Attempt default EVM-style trace

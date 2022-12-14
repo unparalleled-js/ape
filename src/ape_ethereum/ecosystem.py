@@ -149,6 +149,8 @@ class Ethereum(EcosystemAPI):
     Default transaction type should be overidden id chain doesn't support EIP-1559
     """
 
+    fee_token_symbol: str = "ETH"
+
     @property
     def config(self) -> EthereumConfig:
         return self.config_manager.get_config("ethereum")  # type: ignore

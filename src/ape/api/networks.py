@@ -67,6 +67,9 @@ class EcosystemAPI(BaseInterfaceModel):
     request_header: dict
     """A shareable HTTP header for network requests."""
 
+    fee_token_symbol: str
+    """The symbol of the currency used to pay fees, such as ETH."""
+
     _default_network: str = LOCAL_NETWORK_NAME
 
     def __repr__(self) -> str:
