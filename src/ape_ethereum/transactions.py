@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, root_validator, validator
 from ape.api import ReceiptAPI, TransactionAPI
 from ape.contracts import ContractEvent
 from ape.exceptions import OutOfGasError, SignatureError, TransactionError
-from ape.types import ContractLog
+from ape.types import CallTreeNode, ContractLog
 from ape.utils import cached_property
 
 
@@ -150,7 +150,7 @@ class Receipt(ReceiptAPI):
         return self.status != TransactionStatusEnum.NO_ERROR
 
     @cached_property
-    def call_tree(self) -> Optional[Dict]:
+    def call_tree(self) -> Optional[CallTreeNode]:
         if not self.receiver:
             # Not an function invoke
             return None
@@ -169,12 +169,13 @@ class Receipt(ReceiptAPI):
         if not call_tree:
             return
 
+        call_tree.verbose = verbose
         revert_message = None
 
-        if call_tree["failed"]:
+        if call_tree.raw_tree["failed"]:
             default_message = "reverted without message"
             if (
-                not call_tree["returndata"]
+                not call_tree.raw_tree["returndata"]
                 .hex()
                 .startswith(
                     "0x08c379a00000000000000000000000000000000000000000000000000000000000000020"
@@ -182,28 +183,20 @@ class Receipt(ReceiptAPI):
             ):
                 revert_message = default_message
             else:
-                decoded_result = decode(("string",), call_tree["returndata"][4:])
+                decoded_result = decode(("string",), call_tree.raw_tree["returndata"][4:])
                 if len(decoded_result) == 1:
                     revert_message = f'reverted with message: "{decoded_result[0]}"'
                 else:
                     revert_message = default_message
 
-        self.chain_manager._reports.show_trace(
-            call_tree,
-            sender=self.sender,
-            transaction_hash=self.txn_hash,
-            revert_message=revert_message,
-            verbose=verbose,
-        )
+        self.chain_manager._reports.show_trace(call_tree, revert_message=revert_message)
 
     def show_gas_report(self, file: IO[str] = sys.stdout):
         call_tree = self.call_tree
         if not call_tree:
             return
 
-        self.chain_manager._reports.show_gas(
-            call_tree, sender=self.sender, transaction_hash=self.txn_hash
-        )
+        self.chain_manager._reports.show_gas(call_tree)
 
     def decode_logs(
         self,

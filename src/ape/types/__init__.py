@@ -24,6 +24,7 @@ from web3.types import FilterParams
 from ape.utils.misc import to_int
 
 from .signatures import MessageSignature, SignableMessage, TransactionSignature
+from .trace import CallTreeNode
 
 BlockID = Union[int, HexStr, HexBytes, Literal["earliest", "latest", "pending"]]
 """
@@ -277,6 +278,7 @@ __all__ = [
     "AddressType",
     "BlockID",
     "Bytecode",
+    "CallTreeNode",
     "Checksum",
     "Compiler",
     "ContractLog",

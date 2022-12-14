@@ -29,8 +29,16 @@ from ape.exceptions import (
 )
 from ape.logging import logger
 from ape.managers.base import BaseManager
-from ape.types import AddressType, BlockID, ContractFunctionPath, GasReport, SnapshotID
-from ape.utils import CallTraceParser, TraceStyles, parse_gas_table
+from ape.types import (
+    AddressType,
+    BlockID,
+    CallTreeNode,
+    ContractFunctionPath,
+    GasReport,
+    SnapshotID,
+)
+from ape.types.trace import TraceStyles
+from ape.utils import parse_gas_table
 
 
 class BlockContainer(BaseManager):
@@ -715,15 +723,15 @@ class ContractCache(BaseManager):
             logger.warning("No addresses provided.")
             return {}
 
-        def get_contract_type(addr: AddressType):
-            addr = self.conversion_manager.convert(addr, AddressType)
-            ct = self.get(addr)
+        def get_contract_type(_address: AddressType):
+            _address = self.conversion_manager.convert(_address, AddressType)
+            _contract_type = self.get(_address)
 
-            if not ct:
-                logger.warning(f"Failed to locate contract at '{addr}'.")
-                return addr, None
+            if not _contract_type:
+                logger.warning(f"Failed to locate contract at '{_address}'.")
+                return _address, None
             else:
-                return addr, ct
+                return _address, _contract_type
 
         converted_addresses: List[AddressType] = []
         for address in converted_addresses:
@@ -1053,35 +1061,28 @@ class ReportManager(BaseManager):
     def show_trace(
         self,
         call_tree: Any,
-        sender: Optional[AddressType] = None,
-        transaction_hash: Optional[str] = None,
         revert_message: Optional[str] = None,
         file: Optional[IO[str]] = None,
-        verbose: bool = False,
     ):
-        parser = CallTraceParser(sender=sender, transaction_hash=transaction_hash, verbose=verbose)
-        root = parser.parse_as_tree(call_tree)
+        root = call_tree.tree
         console = self._get_console(file)
 
-        if transaction_hash:
-            console.print(f"Call trace for [bold blue]'{transaction_hash}'[/]")
+        if call_tree.transaction_hash:
+            console.print(f"Call trace for [bold blue]'{call_tree.transaction_hash}'[/]")
         if revert_message:
             console.print(f"[bold red]{revert_message}[/]")
-        if sender:
-            console.print(f"tx.origin=[{TraceStyles.CONTRACTS}]{sender}[/]")
+        if call_tree.sender:
+            console.print(f"tx.origin=[{TraceStyles.CONTRACTS}]{call_tree.sender}[/]")
 
         console.print(root)
 
     def show_gas(
         self,
         call_tree: Any,
-        sender: Optional[AddressType] = None,
-        transaction_hash: Optional[str] = None,
         file: Optional[IO[str]] = None,
     ):
         console = self._get_console(file)
-        parser = CallTraceParser(sender=sender, transaction_hash=transaction_hash)
-        tables = parser.parse_as_gas_report(call_tree)
+        tables = call_tree.gas_report()
         console.print(*tables)
 
     def show_session_gas(
@@ -1096,20 +1097,14 @@ class ReportManager(BaseManager):
         console.print(*tables)
         return True
 
-    def append_gas(
-        self,
-        call_tree: Dict,
-        contract_address: AddressType,
-        sender: Optional[AddressType] = None,
-        transaction_hash: Optional[str] = None,
-    ):
+    def append_gas(self, call_tree: CallTreeNode):
+        contract_address = self.provider.network.ecosystem.decode_address(call_tree["address"])
         contract_type = self.chain_manager.contracts.get(contract_address)
         if not contract_type:
             # Skip unknown contracts.
             return
 
-        parser = CallTraceParser(sender=sender, transaction_hash=transaction_hash)
-        gas_report = parser._get_rich_gas_report(call_tree, exclude=self.gas_exclusions)
+        gas_report = call_tree.create_gas_report(exclude=self.gas_exclusions)
         if gas_report and self.session_gas_report:
             self.session_gas_report = merge_reports(self.session_gas_report, gas_report)
         elif gas_report:

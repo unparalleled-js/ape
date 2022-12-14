@@ -42,7 +42,15 @@ from ape.exceptions import (
     VirtualMachineError,
 )
 from ape.logging import LogLevel, logger
-from ape.types import AddressType, BlockID, ContractCode, ContractLog, LogFilter, SnapshotID
+from ape.types import (
+    AddressType,
+    BlockID,
+    CallTreeNode,
+    ContractCode,
+    ContractLog,
+    LogFilter,
+    SnapshotID,
+)
 from ape.utils import (
     EMPTY_BYTES32,
     BaseInterfaceModel,
@@ -471,7 +479,7 @@ class ProviderAPI(BaseInterfaceModel):
         """
 
     @raises_not_implemented
-    def get_call_tree(self, txn_hash: str) -> Dict:  # type: ignore[empty-body]
+    def get_call_tree(self, txn_hash: str) -> CallTreeNode:  # type: ignore[empty-body]
         """
         Create a tree structure of calls for a transaction.
 

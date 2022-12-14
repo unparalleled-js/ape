@@ -101,13 +101,15 @@ def test_get_call_tree(geth_provider, geth_contract, accounts):
     assert re.match(expected, actual)
 
 
-def test_get_call_tree_erigon(mock_web3, mock_geth, parity_trace_response):
+def test_get_call_tree_erigon(mock_web3, mock_geth, parity_trace_response, accounts):
+    receipt = accounts.test_accounts[0].transfer(accounts.test_accounts[1], "1 gwei")
     mock_web3.client_version = "erigon_MOCK"
     mock_web3.provider.make_request.return_value = parity_trace_response
-    raw_result = mock_geth.get_call_tree(TRANSACTION_HASH)
-    result = CallTreeNode.parse_obj(raw_result)
+    mock_web3.eth.wait_for_transaction_receipt.return_value = receipt
+    result = mock_geth.get_call_tree(receipt.txn_hash)
     actual = repr(result)
-    expected = r"CALL: 0xC17f2C69aE2E66FD87367E3260412EEfF637F70E.<0x96d373e5> \[\d+ gas\]"
+    breakpoint()
+    expected = r"CALL: 0xC17f2C69aE2E66FD87367E3260412EEfF637F70E\.<0x96d373e5> \[\d+ gas\]"
     assert re.match(expected, actual)
 
 

@@ -7,7 +7,7 @@ from evm_trace import CallTreeNode
 from rich import print as rich_print
 
 from ape.contracts import ContractContainer
-from ape.utils.trace import CallTraceParser
+from ape.utils.trace import parse_call_tree
 from ape_ethereum.transactions import BaseTransaction, Receipt
 from tests.functional.data.python import (
     LOCAL_CALL_TREE_DICT,
@@ -116,7 +116,6 @@ def assert_trace(capsys):
 
 
 def test_trace(case, assert_trace):
-    parser = CallTraceParser(sender=case.receipt.sender, transaction_hash=case.receipt.txn_hash)
-    actual = parser.parse_as_tree(case.call_tree)
+    actual = parse_call_tree(case.receipt.call_tree)
     rich_print(actual)
     assert_trace(case.expected)

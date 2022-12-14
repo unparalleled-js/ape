@@ -8,7 +8,6 @@ import requests
 from eth_typing import HexStr
 from eth_utils import add_0x_prefix, to_hex, to_wei
 from evm_trace import (
-    CallTreeNode,
     CallType,
     ParityTraceList,
     TraceFrame,
@@ -34,7 +33,7 @@ from yarl import URL
 from ape.api import PluginConfig, TestProviderAPI, TransactionAPI, UpstreamProvider, Web3Provider
 from ape.exceptions import APINotImplementedError, ProviderError
 from ape.logging import logger
-from ape.types import SnapshotID
+from ape.types import AddressType, CallTreeNode, SnapshotID
 from ape.utils import (
     DEFAULT_NUMBER_OF_TEST_ACCOUNTS,
     DEFAULT_TEST_MNEMONIC,
@@ -280,27 +279,36 @@ class BaseGethProvider(Web3Provider, ABC):
             "debug_traceTransaction", [txn_hash, {"enableMemory": True, "tracer": "callTracer"}]
         )
 
-    def get_call_tree(self, txn_hash: str) -> Dict:
+    def get_call_tree(self, txn_hash: str) -> CallTreeNode:
+        receipt = self.chain_manager.get_receipt(txn_hash)
         if "erigon" in self.client_version.lower():
-            return self._get_parity_call_tree(txn_hash).dict()
+            return self._get_parity_call_tree(receipt.sender, txn_hash)
 
         try:
             # Try the Parity traces first, in case node client supports it.
-            return self._get_parity_call_tree(txn_hash).dict()
+            return self._get_parity_call_tree(receipt.sender, txn_hash)
         except (ValueError, APINotImplementedError, ProviderError):
-            return self._get_geth_call_tree(txn_hash).dict()
+            return self._get_geth_call_tree(receipt.sender, txn_hash)
 
-    def _get_parity_call_tree(self, txn_hash: str) -> CallTreeNode:
+    def _get_parity_call_tree(self, sender: AddressType, txn_hash: str) -> CallTreeNode:
         result = self._make_request("trace_transaction", [txn_hash])
         if not result:
             raise ProviderError(f"Failed to get trace for '{txn_hash}'.")
 
         traces = ParityTraceList.parse_obj(result)
-        return get_calltree_from_parity_trace(traces)
+        return CallTreeNode.construct(
+            raw_tree=get_calltree_from_parity_trace(traces).dict(),
+            caller_address=sender,
+            transaction_hash=txn_hash,
+        )
 
-    def _get_geth_call_tree(self, txn_hash: str) -> CallTreeNode:
+    def _get_geth_call_tree(self, sender: AddressType, txn_hash: str) -> CallTreeNode:
         calls = self._get_transaction_trace_using_call_tracer(txn_hash)
-        return get_calltree_from_geth_call_trace(calls)
+        return CallTreeNode.construct(
+            raw_tree=get_calltree_from_geth_call_trace(calls).dict(),
+            caller_address=sender,
+            transaction_hash=txn_hash,
+        )
 
     def _log_connection(self, client_name: str):
         logger.info(f"Connecting to existing {client_name} node at '{self._clean_uri}'.")
@@ -447,12 +455,13 @@ class GethDev(BaseGethProvider, TestProviderAPI):
             "returndata": return_value,
         }
 
-        call_tree = get_calltree_from_geth_trace(trace_frames, **root_node_kwargs).dict()
+        evm_call = get_calltree_from_geth_trace(trace_frames, **root_node_kwargs)
+        call_tree = CallTreeNode(raw_trace=evm_call.dict())
         receiver = txn.receiver
         if track_gas and call_tree and receiver is not None:
             # Gas report being collected, likely for showing a report
             # at the end of a test run.
-            self.chain_manager._reports.append_gas(call_tree, receiver)
+            self.chain_manager._reports.append_gas(call_tree)
         if show_trace:
             self.chain_manager._reports.show_trace(call_tree)
         if show_gas:
@@ -460,8 +469,14 @@ class GethDev(BaseGethProvider, TestProviderAPI):
 
         return return_value
 
-    def get_call_tree(self, txn_hash: str, **root_node_kwargs) -> Dict:
-        return self._get_geth_call_tree(txn_hash, **root_node_kwargs).dict()
+    def get_call_tree(self, txn_hash: str, **root_node_kwargs) -> CallTreeNode:
+        receipt = self.chain_manager.get_receipt(txn_hash)
+        evm_tree = self._get_geth_call_tree(receipt.sender, txn_hash, **root_node_kwargs)
+        return CallTreeNode(
+            raw_tree=evm_tree.dict(),
+            caller_address=receipt.sender,
+            transaction_hash=txn_hash,
+        )
 
 
 class Geth(BaseGethProvider, UpstreamProvider):
