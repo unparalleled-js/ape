@@ -723,15 +723,15 @@ class ContractCache(BaseManager):
             logger.warning("No addresses provided.")
             return {}
 
-        def get_contract_type(_address: AddressType):
-            _address = self.conversion_manager.convert(_address, AddressType)
-            _contract_type = self.get(_address)
+        def get_contract_type(addr: AddressType):
+            addr = self.conversion_manager.convert(addr, AddressType)
+            ct = self.get(addr)
 
-            if not _contract_type:
-                logger.warning(f"Failed to locate contract at '{_address}'.")
-                return _address, None
+            if not ct:
+                logger.warning(f"Failed to locate contract at '{addr}'.")
+                return addr, None
             else:
-                return _address, _contract_type
+                return addr, ct
 
         converted_addresses: List[AddressType] = []
         for address in converted_addresses:
@@ -1098,7 +1098,7 @@ class ReportManager(BaseManager):
         return True
 
     def append_gas(self, call_tree: CallTreeNode):
-        contract_address = self.provider.network.ecosystem.decode_address(call_tree["address"])
+        contract_address = self.provider.network.ecosystem.decode_address(call_tree.address)
         contract_type = self.chain_manager.contracts.get(contract_address)
         if not contract_type:
             # Skip unknown contracts.
