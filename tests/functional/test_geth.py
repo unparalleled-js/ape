@@ -108,7 +108,6 @@ def test_get_call_tree_erigon(mock_web3, mock_geth, parity_trace_response, accou
     mock_web3.eth.wait_for_transaction_receipt.return_value = receipt
     result = mock_geth.get_call_tree(receipt.txn_hash)
     actual = repr(result)
-    breakpoint()
     expected = r"CALL: 0xC17f2C69aE2E66FD87367E3260412EEfF637F70E\.<0x96d373e5> \[\d+ gas\]"
     assert re.match(expected, actual)
 

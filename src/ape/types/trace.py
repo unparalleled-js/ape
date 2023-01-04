@@ -61,7 +61,7 @@ class TraceFrame(BaseInterfaceModel):
 
 
 class CallTreeNode(BaseInterfaceModel):
-    contract_address: AddressType
+    contract_address: "AddressType"
     method_id: str
     raw_tree: Dict
     transaction_hash: Optional[str] = None
