@@ -52,6 +52,14 @@ class TraceStyles:
     """The gas used of the call."""
 
 
+class TraceFrame(BaseInterfaceModel):
+    pc: int
+    op: str
+    gas: int
+    gas_cost: int
+    depth: int
+
+
 class CallTreeNode(BaseInterfaceModel):
     contract_address: AddressType
     method_id: str

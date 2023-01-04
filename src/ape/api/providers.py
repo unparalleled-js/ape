@@ -50,6 +50,7 @@ from ape.types import (
     ContractLog,
     LogFilter,
     SnapshotID,
+    TraceFrame,
 )
 from ape.utils import (
     EMPTY_BYTES32,
@@ -467,7 +468,9 @@ class ProviderAPI(BaseInterfaceModel):
         """
 
     @raises_not_implemented
-    def get_transaction_trace(self, txn_hash: str) -> Iterator[Dict]:  # type: ignore[empty-body]
+    def get_transaction_trace(  # type: ignore[empty-body]
+        self, txn_hash: str
+    ) -> Iterator[TraceFrame]:
         """
         Provide a detailed description of opcodes.
 
@@ -475,7 +478,8 @@ class ProviderAPI(BaseInterfaceModel):
             txn_hash (str): The hash of a transaction to trace.
 
         Returns:
-            Iterator(Dict): Transaction execution trace object.
+            Iterator(:class:`~ape.types.trace.TraceFrame`): Transaction execution
+            trace object.
         """
 
     @raises_not_implemented
@@ -487,7 +491,7 @@ class ProviderAPI(BaseInterfaceModel):
             txn_hash (str): The hash of a transaction to trace.
 
         Returns:
-            Dict: Transaction execution call-tree objects.
+            :class:`~ape.types.trace.CallTreeNode`: Transaction execution call-tree objects.
         """
 
     def prepare_transaction(self, txn: TransactionAPI) -> TransactionAPI:

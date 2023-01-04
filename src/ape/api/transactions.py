@@ -1,6 +1,6 @@
 import sys
 import time
-from typing import IO, TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Iterator, List, Optional, Union
 
 from ethpm_types import HexBytes
 from ethpm_types.abi import EventABI, MethodABI
@@ -11,7 +11,14 @@ from tqdm import tqdm  # type: ignore
 from ape.api.explorers import ExplorerAPI
 from ape.exceptions import TransactionError
 from ape.logging import logger
-from ape.types import AddressType, CallTreeNode, ContractLog, GasLimit, TransactionSignature
+from ape.types import (
+    AddressType,
+    CallTreeNode,
+    ContractLog,
+    GasLimit,
+    TraceFrame,
+    TransactionSignature,
+)
 from ape.utils import BaseInterfaceModel, abstractmethod, raises_not_implemented
 
 if TYPE_CHECKING:
@@ -206,7 +213,7 @@ class ReceiptAPI(BaseInterfaceModel):
         """
 
     @property
-    def trace(self) -> Iterator[Dict]:
+    def trace(self) -> Iterator[TraceFrame]:
         """
         The trace of the transaction, if available from your provider.
         """
