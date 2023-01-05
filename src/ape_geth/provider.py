@@ -472,6 +472,7 @@ class GethDev(BaseGethProvider, TestProviderAPI):
     def get_call_tree(self, txn_hash: str, **root_node_kwargs) -> CallTreeNode:
         receipt = self.chain_manager.get_receipt(txn_hash)
         evm_tree = self._get_geth_call_tree(receipt.sender, txn_hash, **root_node_kwargs)
+
         return CallTreeNode(
             address=evm_trace.address,
             metho

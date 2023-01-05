@@ -61,11 +61,11 @@ class TraceFrame(BaseInterfaceModel):
 
 class CallTreeNode(BaseInterfaceModel):
     address: "AddressType"
-    method_id: str
     calls: List["CallTreeNode"] = []
 
     # The follow properties assist in making prettier displays of the tree
     # but are not required.
+    method_id: Optional[str] = None
     call_type: Optional[str] = None
     transaction_hash: Optional[str] = None
     caller_address: Optional["AddressType"] = None
@@ -97,6 +97,9 @@ class CallTreeNode(BaseInterfaceModel):
             builder += f" [{self.gas_cost} gas]"
 
         return builder
+
+    def add(self, call: "CallTreeNode"):
+        self.calls.append(call)
 
     @cached_property
     def tree(self) -> Tree:
