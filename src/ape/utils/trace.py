@@ -14,7 +14,6 @@ from rich.table import Table
 from rich.tree import Tree
 
 from ape.exceptions import DecodingError
-from ape.utils.abi import _get_method_abi
 
 if TYPE_CHECKING:
     from ape.types import CallTreeNode, GasReport
@@ -25,40 +24,50 @@ _DEFAULT_TRACE_GAS_PATTERN = re.compile(r"\[\d* gas]")
 
 
 def parse_call_tree(root: "CallTreeNode") -> Tree:
-    address = root.provider.network.ecosystem.decode_address(root["address"])
+    address = root.provider.network.ecosystem.decode_address(root.address)
 
     # Collapse pre-compile address calls
     address_int = int(address, 16)
     if 1 <= address_int <= 9:
-        if len(root.sub_trees) == 1:
-            return parse_call_tree(root.sub_trees[0])
+        if len(root.calls) == 1:
+            return parse_call_tree(root.calls[0])
 
         intermediary_node = Tree(f"{address_int}")
-        for sub_tree_node in root.sub_trees:
+        for sub_tree_node in root.calls:
             sub_tree = parse_call_tree(sub_tree_node)
             intermediary_node.add(sub_tree)
 
         return intermediary_node
 
     contract_type = root.chain_manager.contracts.get(address)
-    selector = root["calldata"][:4]
+    selector = root.calldata[:4] if root.calldata is not None else None
     call_signature = ""
 
     if contract_type:
         contract_id = root._get_contract_id(address, contract_type=contract_type)
-        method_abi = _get_method_abi(selector, contract_type)
 
+        method_abi = contract_type.methods[selector] if selector else None
         if method_abi:
-            raw_calldata = root["calldata"][4:]
-            arguments = root._decode_calldata(method_abi, raw_calldata)
+
+            if root.calldata:
+                raw_calldata = root.calldata[4:]
+                arguments = root._decode_calldata(method_abi, raw_calldata)
+            else:
+                arguments = {}
 
             # The revert-message appears at the top of the trace output.
             try:
-                return_value = root._decode_returndata(method_abi) if not root["failed"] else None
+                return_value = root._decode_returndata(method_abi) if not root.failed else None
             except (DecodingError, InsufficientDataBytes):
                 return_value = "<?>"
 
-            method_id = method_abi.name or f"<{selector.hex()}>"
+            if method_abi.name:
+                method_id = method_abi.name
+            elif selector:
+                method_id = selector.hex()
+            else:
+                method_id = "<UnknownMethod>"
+
             call_signature = str(
                 _MethodTraceSignature(
                     root,
@@ -68,15 +77,15 @@ def parse_call_tree(root: "CallTreeNode") -> Tree:
                     return_value,
                 )
             )
-            if root["gas_cost"]:
-                call_signature += f" [{root.colors.GAS_COST}][{root['gas_cost']} gas][/]"
+            if root.gas_cost:
+                call_signature += f" [{root.colors.GAS_COST}][{root.gas_cost} gas][/]"
 
             if root.verbose:
                 extra_info = {
                     "address": address,
-                    "value": root["value"],
-                    "gas_limit": root["gas_limit"],
-                    "call_type": root["call_type"].value,
+                    "value": root.value,
+                    "gas_limit": root.gas_limit,
+                    "call_type": root.call_type,
                 }
                 call_signature += f" {json.dumps(extra_info, indent=root.indent)}"
         elif contract_type.name and contract_id == contract_type.name:
@@ -86,7 +95,7 @@ def parse_call_tree(root: "CallTreeNode") -> Tree:
             call_tree_node = None
             try:
                 # Attempt default EVM-style trace
-                call_tree_node = EvmCallTreeNode.construct(**root.raw_tree)
+                call_tree_node = EvmCallTreeNode.construct(**root.dict())
             except ValidationError:
                 pass
 
@@ -98,7 +107,7 @@ def parse_call_tree(root: "CallTreeNode") -> Tree:
         call_tree_node = None
         try:
             # Attempt default EVM-style trace
-            call_tree_node = EvmCallTreeNode(**root.raw_tree)
+            call_tree_node = EvmCallTreeNode(**root.dict())
         except ValidationError:
             pass
 
@@ -108,19 +117,22 @@ def parse_call_tree(root: "CallTreeNode") -> Tree:
                 call_signature = _dim_default_gas(root, next_node.title)
             else:
                 # Only for mypy's sake. May never get here.
-                call_signature = f"{address}.<{selector.hex()}>"
-                if root["gas_cost"]:
+                call_signature = str(address)
+                if selector:
+                    call_signature = f"{call_signature}.<{selector.hex()}>"
+
+                if root.gas_cost:
                     call_signature = (
-                        f"{call_signature} [{root.colors.GAS_COST}]" f"[{root['gas_cost']} gas][/]"
+                        f"{call_signature} [{root.colors.GAS_COST}]" f"[{root.gas_cost} gas][/]"
                     )
 
-    if root["value"]:
-        eth_value = round(root["value"] / 10**18, 8)
+    if root.value:
+        eth_value = round(root.value / 10**18, 8)
         if eth_value:
             call_signature += f" [{root.colors.VALUE}][{eth_value} value][/]"
 
     parent = Tree(call_signature, guide_style="dim")
-    for sub_call in root["calls"]:
+    for sub_call in root.calls:
         parent.add(str(sub_call))
 
     return parent
@@ -181,7 +193,7 @@ class _MethodTraceSignature:
         contract = f"[{self.root.colors.CONTRACTS}]{self.contract_name}[/]"
         method = f"[{TraceStyles.METHODS}]{self.method_name}[/]"
         call_path = f"{contract}.{method}"
-        call_type = self.root["call_type"].value
+        call_type = self.root.value
 
         if call_type in (CallType.DELEGATECALL.value,):
             call_path = f"[orange](delegate)[/] {call_path}"

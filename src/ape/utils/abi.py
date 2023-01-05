@@ -284,12 +284,3 @@ class LogInputABICollection:
             return HexBytes(value)
 
         return value
-
-
-def _get_method_abi(selector, contract_type) -> Optional[MethodABI]:
-    if selector in contract_type.mutable_methods:
-        return contract_type.mutable_methods[selector]
-    elif selector in contract_type.view_methods:
-        return contract_type.view_methods[selector]
-
-    return None

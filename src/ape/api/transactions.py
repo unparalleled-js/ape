@@ -332,7 +332,11 @@ class ReceiptAPI(BaseInterfaceModel):
         if not call_tree:
             return None
 
-        return self.chain_manager.contracts.lookup_method(call_tree.address, call_tree.calldata)
+        address = call_tree.address
+        if not call_tree.calldata:
+            return None
+
+        return self.chain_manager.contracts.lookup_method(address, call_tree.calldata)
 
     @property
     def return_value(self) -> Any:
@@ -347,6 +351,9 @@ class ReceiptAPI(BaseInterfaceModel):
         method_abi = self.method_called
         if not method_abi:
             return None
+
+        if not call_tree.returndata:
+            return
 
         output = self.provider.network.ecosystem.decode_returndata(method_abi, call_tree.returndata)
         if isinstance(output, tuple) and len(output) < 2:

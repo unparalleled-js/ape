@@ -1092,6 +1092,13 @@ class Web3Provider(ProviderAPI, ABC):
         self.chain_manager.account_history.append(receipt)
         return receipt
 
+    def _get_transaction_trace(self) -> CallTreeNode:
+        """
+        Handles EVM-specific logic for creating a CallTreeNode.
+        Called in EVM implementations of
+        :class:`~ape.api.providers.ProviderAPI.get_call_tree`.
+        """
+
     def _make_request(self, endpoint: str, parameters: List) -> Any:
         coroutine = self.web3.provider.make_request(RPCEndpoint(endpoint), parameters)
         result = run_until_complete(coroutine)

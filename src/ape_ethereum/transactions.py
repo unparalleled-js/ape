@@ -172,18 +172,14 @@ class Receipt(ReceiptAPI):
         call_tree.verbose = verbose
         revert_message = None
 
-        if call_tree.raw_tree["failed"]:
+        if call_tree.failed:
             default_message = "reverted without message"
-            if (
-                not call_tree.raw_tree["returndata"]
-                .hex()
-                .startswith(
-                    "0x08c379a00000000000000000000000000000000000000000000000000000000000000020"
-                )
+            if not call_tree.returndata or not call_tree.returndata.hex().startswith(
+                "0x08c379a00000000000000000000000000000000000000000000000000000000000000020"
             ):
                 revert_message = default_message
-            else:
-                decoded_result = decode(("string",), call_tree.raw_tree["returndata"][4:])
+            elif call_tree.returndata is not None:
+                decoded_result = decode(("string",), call_tree.returndata[4:])
                 if len(decoded_result) == 1:
                     revert_message = f'reverted with message: "{decoded_result[0]}"'
                 else:

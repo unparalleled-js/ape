@@ -12,7 +12,6 @@ from rich.tree import Tree
 
 from ape.exceptions import ContractError, DecodingError
 from ape.utils import ZERO_ADDRESS, BaseInterfaceModel, Struct, parse_call_tree, parse_gas_table
-from ape.utils.abi import _get_method_abi
 
 if TYPE_CHECKING:
     from ape.types import AddressType, ContractFunctionPath, GasReport
@@ -61,11 +60,21 @@ class TraceFrame(BaseInterfaceModel):
 
 
 class CallTreeNode(BaseInterfaceModel):
-    contract_address: "AddressType"
+    address: "AddressType"
     method_id: str
-    raw_tree: Dict
+    calls: List["CallTreeNode"] = []
+
+    # The follow properties assist in making prettier displays of the tree
+    # but are not required.
+    call_type: Optional[str] = None
     transaction_hash: Optional[str] = None
     caller_address: Optional["AddressType"] = None
+    gas_cost: Optional[int] = None
+    gas_limit: Optional[int] = None
+    calldata: Optional[HexBytes] = None
+    returndata: Optional[HexBytes] = None
+    failed: bool = False
+    value: Optional[int] = None
 
     # Display properties
     verbose: bool = False
@@ -75,9 +84,8 @@ class CallTreeNode(BaseInterfaceModel):
 
     def __repr__(self) -> str:
         builder = ""
-        call_type = self.raw_tree.get("call_type")
-        builder += f"{call_type.value}:" if call_type else ""
-        address = self.raw_tree.get("address")
+        builder += f"{self.call_type}:" if self.call_type else ""
+        address = self.address
         if address:
             try:
                 checksum_address = self.provider.network.ecosystem.decode_address(address)
@@ -85,16 +93,10 @@ class CallTreeNode(BaseInterfaceModel):
             except Exception:
                 builder += f" <{address}>"
 
-        gas_cost = self.raw_tree.get("gas_cost", 0)
-        builder += f" [{gas_cost} gas]"
+        if self.gas_cost is not None:
+            builder += f" [{self.gas_cost} gas]"
+
         return builder
-
-    def __getitem__(self, name: str) -> Any:
-        return self.raw_tree[name]
-
-    @cached_property
-    def sub_trees(self) -> List["CallTreeNode"]:
-        return [CallTreeNode(raw_tree=t, **self.dict()) for t in self.raw_tree.get("calls", [])]
 
     @cached_property
     def tree(self) -> Tree:
@@ -144,10 +146,12 @@ class CallTreeNode(BaseInterfaceModel):
             return {i.name: "<?>" for i in method.inputs}
 
     def _decode_returndata(self, method: MethodABI) -> Any:
-        raw_data = self.raw_tree["returndata"]
+        if not self.returndata:
+            return []
+
         values = [
             self._decode_value(v)
-            for v in self.provider.network.ecosystem.decode_returndata(method, raw_data)
+            for v in self.provider.network.ecosystem.decode_returndata(method, self.returndata)
         ]
 
         if len(values) == 1:
@@ -210,12 +214,11 @@ class CallTreeNode(BaseInterfaceModel):
         self, exclude: Optional[List["ContractFunctionPath"]] = None
     ) -> "GasReport":
         exclusions = exclude or []
-        sub_calls = self.raw_tree.get("calls", [])
         this_method = self.create_gas_report
-        exclude_arg = [exclusions for _ in sub_calls]
-        address = self.provider.network.ecosystem.decode_address(self.raw_tree["address"])
+        exclude_arg = [exclusions for _ in self.calls]
+        address = self.provider.network.ecosystem.decode_address(self.address)
         contract_type = self.chain_manager.contracts.get(address)
-        selector = self.raw_tree["calldata"][:4]
+        selector = self.calldata[:4] if self.calldata else None
         contract_id = self._get_contract_id(address, contract_type=contract_type, use_symbol=False)
 
         for exclusion in exclusions:
@@ -244,8 +247,14 @@ class CallTreeNode(BaseInterfaceModel):
         elif contract_type:
             # NOTE: Use contract name when possible to distinguish between sources with the same
             #  symbol. Also, ape projects don't permit multiple contract types with the same name.
-            method_abi = _get_method_abi(selector, contract_type)
-            method_id = method_abi.name if method_abi else selector.hex()
+            method_abi = contract_type.methods[selector]
+
+            if method_abi and method_abi.name is not None:
+                method_id = method_abi.name
+            elif selector is not None:
+                method_id = selector.hex()
+            else:
+                method_id = "<UnknownMethod>"
 
             for exclusion in exclusions:
                 if not exclusion.method_name:
@@ -266,18 +275,19 @@ class CallTreeNode(BaseInterfaceModel):
                     else:
                         return {}
 
-        else:
+        elif selector is not None:
             method_id = selector.hex()
 
-        report = {
-            contract_id: {
-                method_id: [self.raw_tree["gas_cost"]]
-                if self.raw_tree["gas_cost"] is not None
-                else []
+        else:
+            method_id = None
+
+        report = {}
+        if method_id:
+            report = {
+                contract_id: {method_id: [self.gas_cost] if self.gas_cost is not None else []}
             }
-        }
-        reports = list(map(this_method, exclude_arg))
-        if len(reports) >= 1:
-            return merge_reports(report, *reports)
+            reports = list(map(this_method, exclude_arg))
+            if len(reports) >= 1:
+                return merge_reports(report, *reports)
 
         return report

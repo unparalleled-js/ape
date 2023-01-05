@@ -397,7 +397,7 @@ def test_call_transact(vyper_contract_instance, owner):
 def test_receipt(contract_instance, owner):
     receipt = contract_instance.receipt
     assert receipt.txn_hash == contract_instance.txn_hash
-    assert receipt.contract_address == contract_instance.address
+    assert receipt.address == contract_instance.address
     assert receipt.sender == owner
 
 

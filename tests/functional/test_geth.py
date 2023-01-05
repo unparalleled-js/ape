@@ -134,7 +134,7 @@ def test_get_logs(geth_provider, accounts, geth_contract):
     contract.setNumber(101010, sender=owner)
     actual = contract.NumberChange[-1]
     assert actual.event_name == "NumberChange"
-    assert actual.contract_address == contract.address
+    assert actual.address == contract.address
     assert actual.event_arguments["newNum"] == 101010
 
 

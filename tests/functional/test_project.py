@@ -220,7 +220,7 @@ def test_track_deployment_from_previously_deployed_contract(
     bip122_chain_id,
 ):
     receipt = owner.deploy(vyper_contract_container, 0, required_confirmations=0).receipt
-    address = receipt.contract_address
+    address = receipt.address
     contract = Contract(address, txn_hash=receipt.txn_hash)
     name = contract.contract_type.name
 
