@@ -7,7 +7,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 if TYPE_CHECKING:
-    from ape.types import CallTreeNode, GasReport
+    from ape.types import CallTreeNode, CoverageReport, GasReport
 
 _WRAP_THRESHOLD = 50
 _INDENT = 2
@@ -165,8 +165,31 @@ def parse_gas_table(report: "GasReport") -> List[Table]:
     return tables
 
 
+def parse_coverage_table(coverage: "CoverageReport") -> Table:
+    table: Table = Table(title="Contract Coverage", box=SIMPLE)
+
+    # NOTE: Purposely uses same column names as coveragepy
+    table.add_column("Name")
+    table.add_column("Stmts")
+    table.add_column("Miss")
+    table.add_column("Cover")
+    table.add_column("Funcs")
+
+    for project in coverage.projects:
+        for src in project.sources:
+            table.add_row(
+                src.source_id,
+                f"{src.lines_valid}",
+                f"{src.miss_count}",
+                f"{round(src.line_rate * 100, 2)}%",
+                f"{round(src.function_rate * 100, 2)}%",
+            )
+
+    return table
+
+
 def _dict_to_str(dictionary: Dict, color: Optional[str] = None) -> str:
-    length = sum([len(str(v)) for v in [*dictionary.keys(), *dictionary.values()]])
+    length = sum(len(str(v)) for v in [*dictionary.keys(), *dictionary.values()])
     do_wrap = length > _WRAP_THRESHOLD
 
     index = 0

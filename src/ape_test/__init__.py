@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, NewType, Optional
 
 from pydantic import NonNegativeInt
 
@@ -16,6 +16,9 @@ class GasExclusion(PluginConfig):
     method_name: Optional[str] = None  # By default, match all methods in a contract
 
 
+CoverageExclusion = NewType("CoverageExclusion", GasExclusion)
+
+
 class GasConfig(PluginConfig):
     """
     Configuration related to test gas reports.
@@ -27,6 +30,57 @@ class GasConfig(PluginConfig):
     """
 
     exclude: List[GasExclusion] = []
+    """
+    Contract methods patterns to skip. Specify ``contract_name:`` and not
+    ``method_name:`` to skip all methods in the contract. Only specify
+    ``method_name:`` to skip all methods across all contracts. Specify
+    both to skip methods in a certain contracts. Entries use glob-rules;
+    use ``prefix_*`` to skip all items with a certain prefix.
+    """
+
+
+class CoverageReportsConfig(PluginConfig):
+    """
+    Enable reports.
+    """
+
+    terminal: bool = True
+    """
+    Set to ``False`` to hide the terminal coverage report.
+    """
+
+    xml: bool = False
+    """
+    Set to ``True`` to generate an XML coverage report in your .build folder.
+    """
+
+    html: bool = False
+    """
+    Set to ``True`` to generate HTML coverage reports.
+    """
+
+    @property
+    def has_any(self) -> bool:
+        return self.html or self.terminal or self.xml
+
+
+class CoverageConfig(PluginConfig):
+    """
+    Configuration related to contract coverage.
+    """
+
+    track: bool = False
+    """
+    Setting this to ``True`` is the same as always running with
+    the ``--coverage`` flag.
+    """
+
+    reports = CoverageReportsConfig()
+    """
+    Enable reports.
+    """
+
+    exclude: List[CoverageExclusion] = []
     """
     Contract methods patterns to skip. Specify ``contract_name:`` and not
     ``method_name:`` to skip all methods in the contract. Only specify
@@ -50,6 +104,11 @@ class Config(PluginConfig):
     gas: GasConfig = GasConfig()
     """
     Configuration related to gas reporting.
+    """
+
+    coverage: CoverageConfig = CoverageConfig()
+    """
+    Configuration related to coverage reporting.
     """
 
     disconnect_providers_after: bool = True

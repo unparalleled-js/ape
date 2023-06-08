@@ -533,3 +533,49 @@ While in this mode, any time a `.py` file (i.e. your tests) or smart contract so
 or changed, then the `ape test` task will be re-triggered, based on a polling interval.
 
 To exit this mode, press Ctrl+D (on Linux or macOS) to stop the execution and undo it.
+
+## Contract Coverage
+
+To get contract coverage, use the `--coverage` flag when running `ape test`:
+
+```shell
+ape test --coverage
+```
+
+**NOTE**: This requires using a provider that supports transaction tracing, such as `ape-hardhat` or `ape-foundry`.
+
+Afterwards, you should see a coverage report looking something like:
+
+```shell
+============================================= Coverage Profile =============================================
+               Contract Coverage               
+                                               
+  Name          Stmts   Miss   Cover    Funcs  
+ ───────────────────────────────────────────── 
+  Contract.vy   7       1      85.71%   80.0% 
+```
+
+To generate other coverage reports such XML or HTML, configure it like so:
+
+```yaml
+test:
+  coverage:
+    reports:
+      terminal: False  # Disable the terminal table (True by default)
+      xml: True  # Enable XML report (.build/coverage.xml)
+      html: True  # Enable HTML report (.build/htmlcov)
+```
+
+Much like gas reporting, you can also exclude contracts and methods from tracking coverage using your `ape-config.yaml` file.
+The following demonstrates how to do this:
+
+```yaml
+test:
+  coverage:
+    exclude:
+      - method_name: DEBUG_*         # Exclude all methods starting with `DEBUG_`.
+      - contract_name: MockToken     # Exclude all methods in contract named `MockToken`.
+      - contract_name: PoolContract  # Exclude methods starting with `reset_` in `PoolContract`.
+        method_name: reset_*
+```
+
