@@ -149,6 +149,10 @@ def parse_gas_table(report: "GasReport") -> List[Table]:
             if not gases:
                 continue
 
+            # `__init__` looks better in the gas report.
+            if method_call == "__new__":
+                method_call = "__init__"
+
             has_at_least_1_row = True
             table.add_row(
                 method_call,
