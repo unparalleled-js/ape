@@ -699,7 +699,7 @@ class Ethereum(EcosystemAPI):
         method_abi: Optional[Union[MethodABI, ConstructorABI]] = None
         if "CREATE" in (enriched_call.call_type or ""):
             method_abi = contract_type.constructor
-            name = "__init__"
+            name = "__new__"
 
         elif enriched_call.method_id is None:
             name = enriched_call.method_id or "0x"
