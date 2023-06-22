@@ -91,8 +91,8 @@ jobs:
             path: $HOME/.local/bin
             key: ${{ runner.os }}-geth-${{ env.GETH_VERSION }}
 
-        - name: Install Geth
-          if: steps.cache-geth.outputs.cache-hit != 'true'
+        - name: Install Geth MacOs & Ubuntu
+          if: steps.cache-geth.outputs.cache-hit != 'true' && ${{ matrix.os }} != "windows-latest"
           run: |
             mkdir -p $HOME/.local/bin
             wget -O geth.tar.gz "https://github.com/ethereum/go-ethereum/archive/v$GETH_VERSION.tar.gz"
@@ -101,6 +101,20 @@ jobs:
             make geth
             cp ./build/bin/geth /usr/local/bin
             geth version
+
+        - name: Install Geth Windows
+          if: steps.cache-geth.outputs.cache-hit != 'true' && ${{ matrix.os }} != "windows-latest"
+          run: |
+            $GETH_URL = "https://github.com/ethereum/go-ethereum/archive/v$GETH_VERSION.tar.gz"
+            $GETH_ARCHIVE = "$HOME\.local\bin\geth.tar.gz"
+            $GETH_DIR = "$HOME\.local\bin\go-ethereum-$GETH_VERSION"
+            New-Item -ItemType Directory -Path $HOME\.local\bin -Force | Out-Null
+            Invoke-WebRequest -Uri $GETH_URL -OutFile $GETH_ARCHIVE
+            Expand-Archive -Path $GETH_ARCHIVE -DestinationPath $GETH_DIR
+            Set-Location -Path $GETH_DIR
+            & make geth
+            Copy-Item -Path $GETH_DIR\build\bin\geth.exe -Destination "C:\Program Files\geth.exe"
+            & geth.exe version
 
         - name: Install Dependencies
           run: |
