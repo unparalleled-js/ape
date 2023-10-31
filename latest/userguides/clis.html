@@ -212,7 +212,7 @@ You can read more about scripting and CLIs in the <a class="reference external" 
 <p>This guide is for showcasing utilities that ship with Ape to assist in your CLI development endeavors.</p>
 <section id="ape-context-decorator">
 <h2>Ape Context Decorator<a class="headerlink" href="#ape-context-decorator" title="Permalink to this heading"></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">&#64;ape_cli_context</span></code> gives you access to all the root Ape objects (<code class="docutils literal notranslate"><span class="pre">accounts</span></code>, <code class="docutils literal notranslate"><span class="pre">networks</span></code> etc.), the ape logger, and an <code class="docutils literal notranslate"><span class="pre">abort</span></code> method for stopping execution of your CLI gracefully.
+<p>The <a class="reference external" href="../methoddocs/cli.html#ape.cli.options.ape_cli_context">&#64;ape_cli_context</a> gives you access to all the root Ape objects (<code class="docutils literal notranslate"><span class="pre">accounts</span></code>, <code class="docutils literal notranslate"><span class="pre">networks</span></code> etc.), the ape logger, and an <a class="reference external" href="../methoddocs/cli.html#ape.cli.options.ApeCliContextObject.abort">abort</a> method for stopping execution of your CLI gracefully.
 Here is an example using all of those features from the <code class="docutils literal notranslate"><span class="pre">cli_ctx</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">click</span>
 <span class="kn">from</span> <span class="nn">ape.cli</span> <span class="kn">import</span> <span class="n">ape_cli_context</span>
@@ -226,11 +226,36 @@ Here is an example using all of those features from the <code class="docutils li
     <span class="n">cli_ctx</span><span class="o">.</span><span class="n">abort</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bad account: </span><span class="si">{</span><span class="n">account</span><span class="o">.</span><span class="n">address</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>In Ape, it is easy to extend the CLI context object and use the extended version in your CLIs:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">ape.cli</span> <span class="kn">import</span> <span class="n">ApeCliContextObject</span><span class="p">,</span> <span class="n">ape_cli_context</span>
+<span class="kn">import</span> <span class="nn">click</span>
+
+<span class="k">class</span> <span class="nc">MyManager</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot;My custom manager.&quot;&quot;&quot;</span>
+
+<span class="k">class</span> <span class="nc">CustomContext</span><span class="p">(</span><span class="n">ApeCliContextObject</span><span class="p">):</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot;Add new managers to your custom context&quot;&quot;&quot;</span>
+   <span class="n">my_manager</span><span class="p">:</span> <span class="n">MyManager</span> <span class="o">=</span> <span class="n">MyManager</span><span class="p">()</span>
+   
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">signer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot;Utilize existing managers in your custom context.&quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">account_manager</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;my_account&quot;</span><span class="p">)</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@ape_cli_context</span><span class="p">(</span><span class="n">obj_type</span><span class="o">=</span><span class="n">CustomContext</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">cli</span><span class="p">(</span><span class="n">cli_ctx</span><span class="p">):</span>
+    <span class="c1"># Access your manager.</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">cli_ctx</span><span class="o">.</span><span class="n">my_manager</span><span class="p">)</span>
+    <span class="c1"># Access other Ape managers.</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">cli_ctx</span><span class="o">.</span><span class="n">account_manager</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
 <section id="network-tools">
 <h2>Network Tools<a class="headerlink" href="#network-tools" title="Permalink to this heading"></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">&#64;network_option()</span></code> allows you to select an ecosystem / network / provider combination.
-When using with the <code class="docutils literal notranslate"><span class="pre">NetworkBoundCommand</span></code> cls, you can cause your CLI to connect before any of your code executes.
+<p>The <a class="reference external" href="../methoddocs/cli.html#ape.cli.options.network_option">&#64;network_option()</a> allows you to select an ecosystem / network / provider combination.
+When using with the <a class="reference external" href="../methoddocs/cli.html#ape.cli.commands.NetworkBoundCommand">NetworkBoundCommand</a> class, you can cause your CLI to connect before any of your code executes.
 This is useful if your script or command requires a provider connection in order for it to run.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">click</span>
 <span class="kn">from</span> <span class="nn">ape</span> <span class="kn">import</span> <span class="n">networks</span>
@@ -254,7 +279,7 @@ This is useful if your script or command requires a provider connection in order
 </section>
 <section id="account-tools">
 <h2>Account Tools<a class="headerlink" href="#account-tools" title="Permalink to this heading"></a></h2>
-<p>Use the <code class="docutils literal notranslate"><span class="pre">&#64;account_option()</span></code> for adding an option to your CLIs to select an account.
+<p>Use the <a class="reference external" href="../methoddocs/cli.html#ape.cli.options.account_option">&#64;account_option()</a> for adding an option to your CLIs to select an account.
 This option does several things:</p>
 <ol class="arabic simple">
 <li><p>If you only have a single account in Ape (from both test accounts <em>and</em> other accounts), it will use that account as the default.
@@ -284,7 +309,7 @@ Here is an example:</p>
 &lt;prefix&gt;<span class="w"> </span>cmd<span class="w"> </span>--account<span class="w"> </span>TEST::0<span class="w">  </span><span class="c1"># Use the test account at index 0.</span>
 </pre></div>
 </div>
-<p>Alternatively, you can call the <code class="docutils literal notranslate"><span class="pre">get_user_selected_account()</span></code> directly to have more control of when the account gets selected:</p>
+<p>Alternatively, you can call the <a class="reference external" href="../methoddocs/cli.html#ape.cli.choices.get_user_selected_account">get_user_selected_account()</a> directly to have more control of when the account gets selected:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">click</span>
 <span class="kn">from</span> <span class="nn">ape.cli</span> <span class="kn">import</span> <span class="n">get_user_selected_account</span>
 
@@ -296,8 +321,8 @@ Here is an example:</p>
 </pre></div>
 </div>
 <p>Similarly, there are a couple custom arguments for aliases alone that are useful when making CLIs for account creation.
-If you use <code class="docutils literal notranslate"><span class="pre">&#64;existing_alias_argument()</span></code> and specify an alias does not already exist, it will error.
-And visa-versa when using <code class="docutils literal notranslate"><span class="pre">&#64;non_existing_alias_argument()</span></code></p>
+If you use <a class="reference external" href="../methoddocs/cli.html#ape.cli.arguments.existing_alias_argument">&#64;existing_alias_argument()</a> and specify an alias does not already exist, it will error.
+And visa-versa when using <a class="reference external" href="../methoddocs/cli.html#ape.cli.arguments.non_existing_alias_argument">&#64;non_existing_alias_argument()</a>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">click</span>
 <span class="kn">from</span> <span class="nn">ape.cli</span> <span class="kn">import</span> <span class="n">existing_alias_argument</span><span class="p">,</span> <span class="n">non_existing_alias_argument</span>
 
