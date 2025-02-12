@@ -267,13 +267,13 @@ def test_encode_calldata_nested_structs(ethereum):
     assert actual == expected
 
 
-def test_block_handles_snake_case_parent_hash(eth_tester_provider, sender, receiver):
+def test_block_handles_snake_case_parent_hash(boa_provider, sender, receiver):
     # Transaction to change parent hash of next block
     sender.transfer(receiver, "1 gwei")
 
     # Replace 'parentHash' key with 'parent_hash'
-    latest_block = eth_tester_provider.get_block("latest")
-    latest_block_dict = eth_tester_provider.get_block("latest").model_dump()
+    latest_block = boa_provider.get_block("latest")
+    latest_block_dict = boa_provider.get_block("latest").model_dump()
     latest_block_dict["parent_hash"] = latest_block_dict.pop("parentHash")
 
     redefined_block = Block.model_validate(latest_block_dict)
@@ -491,9 +491,9 @@ def test_decode_logs_topics_not_first(ethereum):
     assert actual
 
 
-def test_decode_receipt(eth_tester_provider, ethereum):
+def test_decode_receipt(boa_provider, ethereum):
     receipt_data = {
-        "provider": eth_tester_provider,
+        "provider": boa_provider,
         "required_confirmations": 0,
         "blockHash": HexBytes("0x8988adc8a0b346526f1d769841b7464e38a282b25ed346f1f810be8cb7393bc2"),
         "blockNumber": 2,
@@ -536,7 +536,7 @@ def test_decode_receipt(eth_tester_provider, ethereum):
     )
 
 
-def test_decode_receipt_from_etherscan(eth_tester_provider, ethereum):
+def test_decode_receipt_from_etherscan(boa_provider, ethereum):
     receipt = ethereum.decode_receipt(
         {
             "blockNumber": "11291970",
@@ -689,10 +689,8 @@ def test_default_transaction_type_not_connected_used_default_network(project, et
             networks.active_provider = provider
 
 
-def test_default_transaction_type_configured_from_local_network(
-    eth_tester_provider, ethereum, project
-):
-    _ = eth_tester_provider  # Connection required so 'ethereum' knows the network.
+def test_default_transaction_type_configured_from_local_network(boa_provider, ethereum, project):
+    _ = boa_provider  # Connection required so 'ethereum' knows the network.
     value = TransactionType.STATIC.value
     config = {"ethereum": {LOCAL_NETWORK_NAME: {"default_transaction_type": value}}}
     with project.temp_config(**config):
@@ -835,13 +833,13 @@ def test_decode_returndata_bool(ethereum):
 
 
 @pytest.mark.parametrize("tx_type", TransactionType)
-def test_create_transaction_uses_network_gas_limit(tx_type, ethereum, eth_tester_provider, owner):
+def test_create_transaction_uses_network_gas_limit(tx_type, ethereum, boa_provider, owner):
     tx = ethereum.create_transaction(type=tx_type.value, sender=owner.address)
     assert tx.type == tx_type.value
-    assert tx.gas_limit == eth_tester_provider.max_gas
+    assert tx.gas_limit == boa_provider.max_gas
 
 
-def test_create_transaction_with_none_values(ethereum, eth_tester_provider):
+def test_create_transaction_with_none_values(ethereum, boa_provider):
     """
     Tests against None being in place of values in kwargs,
     causing their actual defaults not to get used and ValidationErrors
@@ -865,7 +863,7 @@ def test_create_transaction_with_none_values(ethereum, eth_tester_provider):
     for tx in (static, dynamic):
         assert tx.data == b""  # None is not allowed.
         assert tx.value == 0  # None is same as 0.
-        assert tx.chain_id == eth_tester_provider.chain_id
+        assert tx.chain_id == boa_provider.chain_id
         assert tx.nonce is None
 
     assert static.gas_price is None
@@ -918,12 +916,12 @@ def test_create_transaction_blob_versioned_hashed(kwarg_name, value, ethereum):
 
 
 @pytest.mark.parametrize("tx_type", TransactionType)
-def test_encode_transaction(tx_type, ethereum, vyper_contract_instance, owner, eth_tester_provider):
+def test_encode_transaction(tx_type, ethereum, vyper_contract_instance, owner, boa_provider):
     abi = vyper_contract_instance.contract_type.methods[0]
     actual = ethereum.encode_transaction(
         vyper_contract_instance.address, abi, sender=owner.address, type=tx_type.value
     )
-    assert actual.gas_limit == eth_tester_provider.max_gas
+    assert actual.gas_limit == boa_provider.max_gas
 
 
 def test_set_default_network_not_exists(ethereum):

@@ -129,7 +129,7 @@ class AccountAPI(BaseInterfaceModel, BaseAddress):
         txn: TransactionAPI,
         send_everything: bool = False,
         private: bool = False,
-        sign: bool = True,
+        sign: Optional[bool] = True,
         **signer_options,
     ) -> ReceiptAPI:
         """
@@ -723,7 +723,7 @@ class ImpersonatedAccount(AccountAPI):
         txn: TransactionAPI,
         send_everything: bool = False,
         private: bool = False,
-        sign: bool = True,
+        sign: Optional[bool] = True,
         **kwargs,
     ) -> ReceiptAPI:
         txn = self.prepare_transaction(txn)

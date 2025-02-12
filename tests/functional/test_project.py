@@ -40,9 +40,9 @@ def manifest(contract_type):
 
 
 @pytest.fixture
-def contract_block_hash(eth_tester_provider, vyper_contract_instance):
+def contract_block_hash(boa_provider, vyper_contract_instance):
     block_number = vyper_contract_instance.creation_metadata.block
-    return to_hex(eth_tester_provider.get_block(block_number).hash)
+    return to_hex(boa_provider.get_block(block_number).hash)
 
 
 @pytest.fixture

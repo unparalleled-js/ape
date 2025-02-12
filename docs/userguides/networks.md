@@ -571,8 +571,8 @@ You can also use the [parse_network_choice()](../methoddocs/managers.html#ape.ma
 ```python
 from ape import networks
 
-# Same as doing `networks.ethereum.local.use_provider("test")`.
-with networks.parse_network_choice("ethereum:local:test") as provider:
+# Same as doing `networks.ethereum.local.use_provider("boa")`.
+with networks.parse_network_choice("ethereum:local:boa") as provider:
     print(provider)
 ```
 

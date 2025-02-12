@@ -82,7 +82,7 @@ def test_snapshot_and_restore_switched_chains(networks, chain):
     snapshot = chain.snapshot()
     # Switch chains.
     with networks.ethereum.local.use_provider(
-        "test", provider_settings={"chain_id": 11191919191991918223773}
+        "boa", provider_settings={"chain_id": 11191919191991918223773}
     ):
         with pytest.raises(UnknownSnapshotError):
             chain.restore(snapshot)
@@ -102,9 +102,9 @@ def test_isolate(chain, vyper_contract_instance, owner):
     assert vyper_contract_instance.myNumber() == number_at_start
 
 
-def test_history_uses_cache(mocker, eth_tester_provider, chain, vyper_contract_instance, owner):
+def test_history_uses_cache(mocker, boa_provider, chain, vyper_contract_instance, owner):
     expected = vyper_contract_instance.setNumber(3, sender=owner)
-    eth = eth_tester_provider.web3.eth
+    eth = boa_provider.web3.eth
     rpc_spy = mocker.spy(eth, "get_transaction")
     actual = chain.get_receipt(expected.txn_hash)
     assert actual.txn_hash == expected.txn_hash

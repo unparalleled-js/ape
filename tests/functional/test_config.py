@@ -345,10 +345,10 @@ def _create_deployments(
 
 
 def test_ethereum_network_configs(config, project):
-    eth_config = {"ethereum": {"sepolia": {"default_provider": "test"}}}
+    eth_config = {"ethereum": {"sepolia": {"default_provider": "boa"}}}
     with project.temp_config(**eth_config):
         actual = config.get_config("ethereum")
-        assert actual.sepolia.default_provider == "test"
+        assert actual.sepolia.default_provider == "boa"
 
         # Ensure that non-updated fields remain unaffected
         assert actual.sepolia.block_time == 15
@@ -365,7 +365,7 @@ def _sepolia_with_gas_limit(gas_limit: "GasLimit") -> dict:
     return {
         "ethereum": {
             "sepolia": {
-                "default_provider": "test",
+                "default_provider": "boa",
                 "gas_limit": gas_limit,
             }
         }
@@ -493,7 +493,7 @@ def test_merge_configs():
     global_config = {
         "ethereum": {
             "mainnet": {"default_provider": "node"},
-            "local": {"default_provider": "test", "required_confirmations": 5},
+            "local": {"default_provider": "boa", "required_confirmations": 5},
         }
     }
     project_config = {

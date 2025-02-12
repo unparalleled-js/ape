@@ -596,7 +596,7 @@ import pytest
 def test_my_fantom_test(chain):
     assert chain.provider.network.ecosystem.name == "fantom"
 
-@pytest.mark.use_network("ethereum:local:test")
+@pytest.mark.use_network("ethereum:local:boa")
 def test_my_ethereum_test(chain):
     assert chain.provider.network.ecosystem.name == "ethereum"
 ```
@@ -609,7 +609,7 @@ def test_my_multichain_test(networks):
     # The test starts in 1 ecosystem but switches to another
     assert networks.provider.network.ecosystem.name == "ethereum"
 
-    with networks.fantom.local.use_provider("test") as provider:
+    with networks.fantom.local.use_provider("boa") as provider:
         assert provider.network.ecosystem.name == "fantom"
 
     # You can also use the context manager like this:

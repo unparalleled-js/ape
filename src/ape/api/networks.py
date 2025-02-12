@@ -776,7 +776,7 @@ class ProviderContextManager(ManagerAccessMixin):
 
         # Or, using choice-strings:
 
-        with networks.parse_network_choice("ethereum:local:test"):
+        with networks.parse_network_choice("ethereum:local:boa"):
             ...
     """
 

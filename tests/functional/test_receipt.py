@@ -118,9 +118,9 @@ def test_decode_logs_specify_abi(invoke_receipt, vyper_contract_instance):
 
 
 def test_decode_logs_specify_abi_as_event(
-    mocker, invoke_receipt, vyper_contract_instance, eth_tester_provider
+    mocker, invoke_receipt, vyper_contract_instance, boa_provider
 ):
-    spy = mocker.spy(eth_tester_provider.web3.eth, "get_logs")
+    spy = mocker.spy(boa_provider.web3.eth, "get_logs")
     abi = vyper_contract_instance.NumberChange
     logs = invoke_receipt.decode_logs(abi=abi)
     assert len(logs) == 1
@@ -204,7 +204,7 @@ def test_events_with_ds_notes(ds_note_test_contract, owner):
     assert receipt.events[0].transaction_index == 0
 
 
-def test_get_failed_receipt(owner, vyper_contract_instance, eth_tester_provider):
+def test_get_failed_receipt(owner, vyper_contract_instance, boa_provider):
     # Setting to '5' always fails.
 
     with pytest.raises(ContractLogicError) as err:
@@ -246,8 +246,8 @@ def test_receipt_raise_for_status_out_of_gas_error(mocker, ethereum):
     assert err.value.txn == receipt
 
 
-def test_receipt_chain_id(invoke_receipt, eth_tester_provider):
-    assert invoke_receipt.chain_id == eth_tester_provider.chain_id
+def test_receipt_chain_id(invoke_receipt, boa_provider):
+    assert invoke_receipt.chain_id == boa_provider.chain_id
 
 
 def test_track_coverage(deploy_receipt, mocker):

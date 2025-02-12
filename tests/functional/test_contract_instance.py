@@ -37,12 +37,12 @@ def data_object(owner):
     return DataObject()
 
 
-def test_contract_interaction(eth_tester_provider, owner, vyper_contract_instance, mocker):
+def test_contract_interaction(boa_provider, owner, vyper_contract_instance, mocker):
     # Spy on the estimate_gas RPC method.
-    estimate_gas_spy = mocker.spy(eth_tester_provider.web3.eth, "estimate_gas")
+    estimate_gas_spy = mocker.spy(boa_provider.web3.eth, "estimate_gas")
 
     # Check what max gas is before transacting.
-    max_gas = eth_tester_provider.max_gas
+    max_gas = boa_provider.max_gas
 
     # Invoke a method from a contract via transacting.
     receipt = vyper_contract_instance.setNumber(102, sender=owner)
@@ -558,22 +558,22 @@ def test_call_transaction(contract_instance, owner, chain):
     assert init_block == chain.blocks[-1]
 
 
-def test_estimate_gas_cost_txn(vyper_contract_instance, eth_tester_provider, owner):
+def test_estimate_gas_cost_txn(vyper_contract_instance, boa_provider, owner):
     gas_cost = vyper_contract_instance.setNumber.estimate_gas_cost(10, sender=owner)
     assert gas_cost > 0
 
 
-def test_estimate_gas_cost_call(vyper_contract_instance, eth_tester_provider, owner):
+def test_estimate_gas_cost_call(vyper_contract_instance, boa_provider, owner):
     gas_cost = vyper_contract_instance.myNumber.estimate_gas_cost(sender=owner)
     assert gas_cost > 0
 
 
-def test_estimate_gas_cost_account_as_input(vyper_contract_instance, eth_tester_provider, owner):
+def test_estimate_gas_cost_account_as_input(vyper_contract_instance, boa_provider, owner):
     gas_cost = vyper_contract_instance.setAddress.estimate_gas_cost(owner, sender=owner)
     assert gas_cost > 0
 
 
-def test_estimate_gas_cost_call_account_as_input(contract_instance, eth_tester_provider, owner):
+def test_estimate_gas_cost_call_account_as_input(contract_instance, boa_provider, owner):
     assert contract_instance.balances.estimate_gas_cost(owner) > 0
 
 
@@ -926,13 +926,13 @@ def test_fallback_not_defined(contract_instance, owner):
         contract_instance(sender=owner)
 
 
-def test_fallback_as_transaction(fallback_contract, owner, eth_tester_provider):
+def test_fallback_as_transaction(fallback_contract, owner, boa_provider):
     txn = fallback_contract.as_transaction(sender=owner)
     assert isinstance(txn, TransactionAPI)
     assert txn.sender == owner
 
     # Use case: estimating gas ahead of time.
-    estimate = eth_tester_provider.estimate_gas_cost(txn)
+    estimate = boa_provider.estimate_gas_cost(txn)
     assert estimate > 0
 
     # Show we can send this txn.
@@ -993,9 +993,9 @@ def test_sending_funds_to_non_payable_constructor_by_accountDeploy(
 
 
 @pytest.mark.parametrize("tx_type", TransactionType)
-def test_as_transaction(tx_type, vyper_contract_instance, owner, eth_tester_provider):
+def test_as_transaction(tx_type, vyper_contract_instance, owner, boa_provider):
     tx = vyper_contract_instance.setNumber.as_transaction(987, sender=owner, type=tx_type.value)
-    assert tx.gas_limit == eth_tester_provider.max_gas
+    assert tx.gas_limit == boa_provider.max_gas
 
 
 @pytest.mark.parametrize(

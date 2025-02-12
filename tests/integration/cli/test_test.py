@@ -175,8 +175,8 @@ def run_gas_test(
 
 
 @skip_projects_except("test", "with-contracts")
-def test_test(setup_pytester, integ_project, pytester, eth_tester_provider):
-    _ = eth_tester_provider  # Ensure using EthTester for this test.
+def test_test(setup_pytester, integ_project, pytester, boa_provider):
+    _ = boa_provider  # Ensure using EthTester for this test.
     passed, failed = setup_pytester(integ_project)
 
     with logger.at_level("DEBUG"):
@@ -190,8 +190,8 @@ def test_test(setup_pytester, integ_project, pytester, eth_tester_provider):
 
 
 @skip_projects_except("with-contracts")
-def test_uncaught_txn_err(setup_pytester, integ_project, pytester, eth_tester_provider):
-    _ = eth_tester_provider  # Ensure using EthTester for this test.
+def test_uncaught_txn_err(setup_pytester, integ_project, pytester, boa_provider):
+    _ = boa_provider  # Ensure using EthTester for this test.
     setup_pytester(integ_project)
     result = pytester.runpytest_subprocess(timeout=120)
     expected = """
@@ -202,8 +202,8 @@ E   ape.exceptions.ContractLogicError: Transaction failed.
 
 
 @skip_projects_except("with-contracts")
-def test_show_internal(setup_pytester, integ_project, pytester, eth_tester_provider):
-    _ = eth_tester_provider  # Ensure using EthTester for this test.
+def test_show_internal(setup_pytester, integ_project, pytester, boa_provider):
+    _ = boa_provider  # Ensure using EthTester for this test.
     setup_pytester(integ_project)
     result = pytester.runpytest_subprocess("--show-internal")
     expected = """
@@ -214,9 +214,9 @@ E   ape.exceptions.ContractLogicError: Transaction failed.
 
 
 @skip_projects_except("test", "with-contracts")
-def test_isolation_disabled(setup_pytester, integ_project, pytester, eth_tester_provider):
+def test_isolation_disabled(setup_pytester, integ_project, pytester, boa_provider):
     # check the disable isolation option actually disables built-in isolation
-    _ = eth_tester_provider  # Ensure using EthTester for this test.
+    _ = boa_provider  # Ensure using EthTester for this test.
     setup_pytester(integ_project)
     result = pytester.runpytest_subprocess("--disable-isolation", "--setup-show")
     assert "F _function_isolation" not in "\n".join(result.outlines)
@@ -274,8 +274,8 @@ def test_vvv(runner, ape_cli, integ_project, v_arg):
 
 
 @skip_projects_except("test", "with-contracts")
-def test_fixture_docs(setup_pytester, integ_project, pytester, eth_tester_provider):
-    _ = eth_tester_provider  # Ensure using EthTester for this test.
+def test_fixture_docs(setup_pytester, integ_project, pytester, boa_provider):
+    _ = boa_provider  # Ensure using EthTester for this test.
     result = pytester.runpytest_subprocess("-q", "--fixtures")
     actual = "\n".join(result.outlines)
 
@@ -289,9 +289,9 @@ def test_fixture_docs(setup_pytester, integ_project, pytester, eth_tester_provid
 
 @skip_projects_except("with-contracts")
 def test_gas_flag_when_not_supported(
-    setup_pytester, project, integ_project, pytester, eth_tester_provider
+    setup_pytester, project, integ_project, pytester, boa_provider
 ):
-    _ = eth_tester_provider  # Ensure using EthTester for this test.
+    _ = boa_provider  # Ensure using EthTester for this test.
     setup_pytester(integ_project)
     path = f"{integ_project.path}/tests/test_contract.py"
     path_w_test = f"{path}::test_contract_interaction_in_tests"
@@ -418,7 +418,7 @@ def test_coverage(geth_provider, setup_pytester, integ_project, pytester, geth_a
 
 
 @skip_projects_except("with-contracts")
-def test_interactive(eth_tester_provider, integ_project, pytester, monkeypatch):
+def test_interactive(boa_provider, integ_project, pytester, monkeypatch):
     secret = "__ 123 super secret 123 __"
     test = f"""
 def test_fails():

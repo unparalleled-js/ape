@@ -7,7 +7,7 @@ from ape.api.query import validate_and_expand_columns
 from ape.utils import DEFAULT_TEST_CHAIN_ID, BaseInterfaceModel
 
 
-def test_basic_query(chain, eth_tester_provider):
+def test_basic_query(chain, boa_provider):
     chain.mine(3)
     blocks_df0 = chain.blocks.query("*")
     blocks_df1 = chain.blocks.query("number", "timestamp")
@@ -35,7 +35,7 @@ def test_basic_query(chain, eth_tester_provider):
     ]
 
 
-def test_relative_block_query(chain, eth_tester_provider):
+def test_relative_block_query(chain, boa_provider):
     start_block = chain.blocks.height
     chain.mine(10)
     df = chain.blocks.query("*", start_block=-8, stop_block=-2)
@@ -44,7 +44,7 @@ def test_relative_block_query(chain, eth_tester_provider):
     assert df.number.max() == chain.blocks[-2].number == start_block + 9
 
 
-def test_block_transaction_query(chain, eth_tester_provider, sender, receiver):
+def test_block_transaction_query(chain, boa_provider, sender, receiver):
     sender.transfer(receiver, 100)
     query = chain.blocks[-1].transactions
     assert len(query) == 1
@@ -52,7 +52,7 @@ def test_block_transaction_query(chain, eth_tester_provider, sender, receiver):
     assert query[0].chain_id == DEFAULT_TEST_CHAIN_ID
 
 
-def test_transaction_contract_event_query(contract_instance, owner, eth_tester_provider):
+def test_transaction_contract_event_query(contract_instance, owner, boa_provider):
     contract_instance.fooAndBar(sender=owner)
     time.sleep(0.1)
     df_events = contract_instance.FooHappened.query("*", start_block=-1)
@@ -61,7 +61,7 @@ def test_transaction_contract_event_query(contract_instance, owner, eth_tester_p
 
 
 def test_transaction_contract_event_query_starts_query_at_deploy_tx(
-    contract_instance, owner, eth_tester_provider
+    contract_instance, owner, boa_provider
 ):
     contract_instance.fooAndBar(sender=owner)
     time.sleep(0.1)
@@ -80,7 +80,7 @@ def test_column_expansion():
     assert columns == list(Model.model_fields)
 
 
-def test_column_validation(eth_tester_provider, ape_caplog):
+def test_column_validation(boa_provider, ape_caplog):
     with pytest.raises(ValueError) as exc_info:
         validate_and_expand_columns(["numbr"], Model)
 
@@ -95,7 +95,7 @@ def test_column_validation(eth_tester_provider, ape_caplog):
     assert "Duplicate fields in ['number', 'timestamp', 'number']" in ape_caplog.messages[-1]
 
 
-def test_specify_engine(chain, eth_tester_provider):
+def test_specify_engine(chain, boa_provider):
     offset = chain.blocks.height + 1
     chain.mine(3)
     actual = chain.blocks.query("*", engine_to_use="__default__")

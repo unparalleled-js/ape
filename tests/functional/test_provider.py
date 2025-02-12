@@ -30,82 +30,69 @@ from ape_ethereum.provider import (
     _sanitize_web3_url,
 )
 from ape_ethereum.transactions import TransactionStatusEnum, TransactionType
-from ape_test import LocalProvider
+from ape_test import TitanoboaProvider
 
 
-def test_uri(eth_tester_provider):
-    assert not eth_tester_provider.http_uri
-    assert not eth_tester_provider.ws_uri
+def test_uri(boa_provider):
+    assert not boa_provider.http_uri
+    assert not boa_provider.ws_uri
 
 
 @pytest.mark.parametrize("block_id", (0, "0", "0x0", HexStr("0x0")))
-def test_get_block(eth_tester_provider, block_id, vyper_contract_instance, owner):
-    block = eth_tester_provider.get_block(block_id)
+def test_get_block(boa_provider, block_id, vyper_contract_instance, owner):
+    block = boa_provider.get_block(block_id)
 
     # Each parameter is the same as requesting the first block.
     assert block.number == 0
-    assert block.base_fee == 1000000000
+    assert block.base_fee == 0
     assert block.gas_used == 0
 
 
-def test_get_block_not_found(eth_tester_provider):
-    latest_block = eth_tester_provider.get_block("latest")
+def test_get_block_not_found(boa_provider):
+    latest_block = boa_provider.get_block("latest")
     block_id = latest_block.number + 1000
     with pytest.raises(BlockNotFoundError, match=f"Block with ID '{block_id}' not found."):
-        eth_tester_provider.get_block(block_id)
+        boa_provider.get_block(block_id)
 
 
-def test_get_block_transaction(vyper_contract_instance, owner, eth_tester_provider):
+def test_get_block_transaction(vyper_contract_instance, owner, boa_provider):
     # Ensure a transaction in latest block
     receipt = vyper_contract_instance.setNumber(900, sender=owner)
-    block = eth_tester_provider.get_block(receipt.block_number)
+    block = boa_provider.get_block(receipt.block_number)
     assert to_hex(block.transactions[-1].txn_hash) == receipt.txn_hash
 
 
-def test_estimate_gas(vyper_contract_instance, eth_tester_provider, owner):
+def test_estimate_gas(vyper_contract_instance, boa_provider, owner):
     txn = vyper_contract_instance.setNumber.as_transaction(900, sender=owner)
-    estimate = eth_tester_provider.estimate_gas_cost(txn)
+    estimate = boa_provider.estimate_gas_cost(txn)
     assert estimate > 0
 
 
-def test_estimate_gas_of_static_fee_txn(vyper_contract_instance, eth_tester_provider, owner):
+def test_estimate_gas_of_static_fee_txn(vyper_contract_instance, boa_provider, owner):
     txn = vyper_contract_instance.setNumber.as_transaction(900, sender=owner, type=0)
-    estimate = eth_tester_provider.estimate_gas_cost(txn)
+    estimate = boa_provider.estimate_gas_cost(txn)
     assert estimate > 0
 
 
-def test_estimate_gas_with_max_value_from_block(
-    mocker, eth_tester_provider, vyper_contract_instance
-):
+def test_estimate_gas_with_max_value_from_block(mocker, boa_provider, vyper_contract_instance):
     mock_limit = mocker.patch(
         "ape.api.networks.NetworkAPI.gas_limit", new_callable=mock.PropertyMock
     )
     mock_limit.return_value = "max"
     txn = vyper_contract_instance.setNumber.as_transaction(900)
-    gas_cost = eth_tester_provider.estimate_gas_cost(txn)
-    latest_block = eth_tester_provider.get_block("latest")
+    gas_cost = boa_provider.estimate_gas_cost(txn)
+    latest_block = boa_provider.get_block("latest")
 
     # NOTE: Gas is estimated if asked, regardless of network defaults.
     assert gas_cost < latest_block.gas_limit
 
 
-def test_chain_id(eth_tester_provider):
-    chain_id = eth_tester_provider.chain_id
+def test_chain_id(boa_provider):
+    chain_id = boa_provider.chain_id
     assert chain_id == DEFAULT_TEST_CHAIN_ID
 
 
-def test_chain_id_is_cached(eth_tester_provider):
-    _ = eth_tester_provider.chain_id
-
-    # Unset `_web3` to show that it is not used in a second call to `chain_id`.
-    web3 = eth_tester_provider._web3
-    eth_tester_provider._web3 = None
-    chain_id = eth_tester_provider.chain_id
-    assert chain_id == DEFAULT_TEST_CHAIN_ID
-    eth_tester_provider._web3 = web3  # Undo
-
-
-def test_chain_id_from_ethereum_base_provider_is_cached(mock_web3, ethereum, eth_tester_provider):
+def test_chain_id_from_ethereum_base_provider_is_cached(mock_web3, ethereum, boa_provider):
     """
     Simulated chain ID from a plugin (using base-ethereum class) to ensure is
     also cached.
@@ -115,7 +102,7 @@ def test_chain_id_from_ethereum_base_provider_is_cached(mock_web3, ethereum, eth
         if rpc == "eth_chainId":
             return {"result": 11155111}  # Sepolia
 
-        return eth_tester_provider.make_request(rpc, arguments)
+        return boa_provider.make_request(rpc, arguments)
 
     mock_web3.provider.make_request.side_effect = make_request
 
@@ -134,15 +121,15 @@ def test_chain_id_from_ethereum_base_provider_is_cached(mock_web3, ethereum, eth
     assert provider.chain_id == 11155111
 
 
-def test_chain_id_when_disconnected(eth_tester_provider):
-    eth_tester_provider.disconnect()
+def test_chain_id_when_disconnected(boa_provider):
+    boa_provider.disconnect()
     try:
-        actual = eth_tester_provider.chain_id
+        actual = boa_provider.chain_id
         expected = DEFAULT_TEST_CHAIN_ID
         assert actual == expected
 
     finally:
-        eth_tester_provider.connect()
+        boa_provider.connect()
 
 
 def test_chain_id_adhoc(networks):
@@ -150,54 +137,50 @@ def test_chain_id_adhoc(networks):
         assert bor.chain_id == 109
 
 
-def test_get_receipt_not_exists_with_timeout(eth_tester_provider):
+def test_get_receipt_not_exists_with_timeout(boa_provider):
     unknown_txn = "0x053cba5c12172654d894f66d5670bab6215517a94189a9ffc09bc40a589ec04d"
-    expected = (
-        f"Transaction '{unknown_txn}' not found. "
-        rf"Error: Transaction '{unknown_txn}' "
-        "is not in the chain after 0 seconds"
-    )
+    expected = f"Transaction '{unknown_txn}' not found."
     with pytest.raises(TransactionNotFoundError, match=expected):
-        eth_tester_provider.get_receipt(unknown_txn, timeout=0)
+        boa_provider.get_receipt(unknown_txn, timeout=0)
 
 
-def test_get_receipt_exists_with_timeout(eth_tester_provider, vyper_contract_instance, owner):
+def test_get_receipt_exists_with_timeout(boa_provider, vyper_contract_instance, owner):
     receipt_from_invoke = vyper_contract_instance.setNumber(888, sender=owner)
-    receipt_from_provider = eth_tester_provider.get_receipt(receipt_from_invoke.txn_hash, timeout=0)
+    receipt_from_provider = boa_provider.get_receipt(receipt_from_invoke.txn_hash, timeout=0)
     assert receipt_from_provider.txn_hash == receipt_from_invoke.txn_hash
     assert receipt_from_provider.receiver == vyper_contract_instance.address
 
 
 def test_get_receipt_ignores_timeout_when_private(
-    eth_tester_provider, mock_web3, vyper_contract_instance, owner
+    boa_provider, mock_web3, vyper_contract_instance, owner
 ):
     receipt_from_invoke = vyper_contract_instance.setNumber(889, sender=owner)
-    real_web3 = eth_tester_provider._web3
+    real_web3 = boa_provider._web3
 
     mock_web3.eth.wait_for_transaction_receipt.side_effect = TimeExhausted
-    eth_tester_provider._web3 = mock_web3
+    boa_provider._web3 = mock_web3
     try:
-        receipt_from_provider = eth_tester_provider.get_receipt(
+        receipt_from_provider = boa_provider.get_receipt(
             receipt_from_invoke.txn_hash, timeout=5, private=True
         )
 
     finally:
-        eth_tester_provider._web3 = real_web3
+        boa_provider._web3 = real_web3
 
     assert receipt_from_provider.txn_hash == receipt_from_invoke.txn_hash
     assert not receipt_from_provider.confirmed
 
 
 def test_get_receipt_passes_receipt_when_private(
-    eth_tester_provider, mock_web3, vyper_contract_instance, owner
+    boa_provider, mock_web3, vyper_contract_instance, owner
 ):
     receipt_from_invoke = vyper_contract_instance.setNumber(890, sender=owner)
-    real_web3 = eth_tester_provider._web3
+    real_web3 = boa_provider._web3
 
     mock_web3.eth.wait_for_transaction_receipt.side_effect = TimeExhausted
-    eth_tester_provider._web3 = mock_web3
+    boa_provider._web3 = mock_web3
     try:
-        receipt_from_provider = eth_tester_provider.get_receipt(
+        receipt_from_provider = boa_provider.get_receipt(
             receipt_from_invoke.txn_hash,
             timeout=5,
             private=True,
@@ -205,7 +188,7 @@ def test_get_receipt_passes_receipt_when_private(
         )
 
     finally:
-        eth_tester_provider._web3 = real_web3
+        boa_provider._web3 = real_web3
 
     assert receipt_from_provider.txn_hash == receipt_from_invoke.txn_hash
     assert not receipt_from_provider.confirmed
@@ -214,7 +197,7 @@ def test_get_receipt_passes_receipt_when_private(
     assert receipt_from_provider.receiver == vyper_contract_instance.address
 
 
-def test_get_contracts_logs_all_logs(chain, contract_instance, owner, eth_tester_provider):
+def test_get_contracts_logs_all_logs(chain, contract_instance, owner, boa_provider):
     start_block = chain.blocks.height
     stop_block = start_block + 100
     log_filter = LogFilter(
@@ -223,13 +206,13 @@ def test_get_contracts_logs_all_logs(chain, contract_instance, owner, eth_tester
         start_block=start_block,
         stop_block=stop_block,
     )
-    logs_at_start = len([log for log in eth_tester_provider.get_contract_logs(log_filter)])
+    logs_at_start = len([log for log in boa_provider.get_contract_logs(log_filter)])
     contract_instance.fooAndBar(sender=owner)  # Create 2 logs
-    logs_after_new_emit = [log for log in eth_tester_provider.get_contract_logs(log_filter)]
+    logs_after_new_emit = [log for log in boa_provider.get_contract_logs(log_filter)]
     assert len(logs_after_new_emit) == logs_at_start + 2
 
 
-def test_get_contract_logs_single_log(chain, contract_instance, owner, eth_tester_provider):
+def test_get_contract_logs_single_log(chain, contract_instance, owner, boa_provider):
     contract_instance.fooAndBar(sender=owner)  # Create logs
     block = chain.blocks.height
     log_filter = LogFilter.from_event(
@@ -239,13 +222,13 @@ def test_get_contract_logs_single_log(chain, contract_instance, owner, eth_teste
         start_block=block,
         stop_block=block,
     )
-    logs = [log for log in eth_tester_provider.get_contract_logs(log_filter)]
+    logs = [log for log in boa_provider.get_contract_logs(log_filter)]
     assert len(logs) == 1
     assert logs[0]["foo"] == 0
 
 
 def test_get_contract_logs_single_log_query_multiple_values(
-    chain, contract_instance, owner, eth_tester_provider
+    chain, contract_instance, owner, boa_provider
 ):
     contract_instance.fooAndBar(sender=owner)  # Create logs
     block = chain.blocks.height
@@ -256,14 +239,12 @@ def test_get_contract_logs_single_log_query_multiple_values(
         start_block=block,
         stop_block=block,
     )
-    logs = [log for log in eth_tester_provider.get_contract_logs(log_filter)]
+    logs = [log for log in boa_provider.get_contract_logs(log_filter)]
     assert len(logs) >= 1
     assert logs[-1]["foo"] == 0
 
 
-def test_get_contract_logs_single_log_unmatched(
-    chain, contract_instance, owner, eth_tester_provider
-):
+def test_get_contract_logs_single_log_unmatched(chain, contract_instance, owner, boa_provider):
     unmatched_search = {"foo": 2}  # Foo is created with a value of 0
     contract_instance.fooAndBar(sender=owner)  # Create logs
     block = chain.blocks.height
@@ -274,12 +255,12 @@ def test_get_contract_logs_single_log_unmatched(
         start_block=block,
         stop_block=block,
     )
-    logs = [log for log in eth_tester_provider.get_contract_logs(log_filter)]
+    logs = [log for log in boa_provider.get_contract_logs(log_filter)]
     assert len(logs) == 0
 
 
-def test_supports_tracing(eth_tester_provider):
-    assert not eth_tester_provider.supports_tracing
+def test_supports_tracing(boa_provider):
+    assert not boa_provider.supports_tracing
 
 
 def test_get_balance(networks, accounts):
@@ -291,7 +272,7 @@ def test_get_balance(networks, accounts):
 def test_set_timestamp(ethereum):
     # NOTE: Using a different eth-tester for multi-processing ease.
     with ethereum.local.use_provider(
-        "test", provider_settings={"chain_id": 919191912828283}
+        "boa", provider_settings={"chain_id": 919191912828283}
     ) as provider:
         pending_at_start = provider.get_block("pending").timestamp
         new_ts = pending_at_start + 100
@@ -302,18 +283,18 @@ def test_set_timestamp(ethereum):
         assert actual == expected
 
 
-def test_set_timestamp_to_same_time(eth_tester_provider):
+def test_set_timestamp_to_same_time(boa_provider):
     """
     Eth tester normally fails when setting the timestamp to the same time.
     However, in Ape, we treat it as a no-op and let it pass.
     """
-    expected = eth_tester_provider.get_block("pending").timestamp
-    eth_tester_provider.set_timestamp(expected)
-    actual = eth_tester_provider.get_block("pending").timestamp
+    expected = boa_provider.get_block("pending").timestamp
+    boa_provider.set_timestamp(expected)
+    actual = boa_provider.get_block("pending").timestamp
     assert actual == expected
 
 
-def test_set_timestamp_handle_same_time_race_condition(mocker, eth_tester_provider):
+def test_set_timestamp_handle_same_time_race_condition(mocker, boa_provider):
     """
     Ensures that when we get an error saying the timestamps are the same,
     we ignore it and treat it as a noop. This handles the race condition
@@ -329,48 +310,46 @@ def test_set_timestamp_handle_same_time_race_condition(mocker, eth_tester_provid
             "- parent : 0."
         )
 
-    mocker.patch.object(eth_tester_provider.evm_backend, "time_travel", side_effect=side_effect)
-    eth_tester_provider.set_timestamp(123)
+    mocker.patch.object(boa_provider.evm_backend, "time_travel", side_effect=side_effect)
+    boa_provider.set_timestamp(123)
 
 
-def test_get_virtual_machine_error_when_txn_failed_includes_base_error(eth_tester_provider):
+def test_get_virtual_machine_error_when_txn_failed_includes_base_error(boa_provider):
     txn_failed = TransactionFailed()
-    actual = eth_tester_provider.get_virtual_machine_error(txn_failed)
+    actual = boa_provider.get_virtual_machine_error(txn_failed)
     assert actual.base_err == txn_failed
 
 
-def test_get_virtual_machine_error_panic(eth_tester_provider, mocker):
+def test_get_virtual_machine_error_panic(boa_provider, mocker):
     data = "0x4e487b710000000000000000000000000000000000000000000000000000000000000032"
     message = "Panic error 0x32: Array index is out of bounds."
     exception = ContractPanicError(data=data, message=message)
-    enrich_spy = mocker.spy(eth_tester_provider.compiler_manager, "enrich_error")
-    actual = eth_tester_provider.get_virtual_machine_error(exception)
+    enrich_spy = mocker.spy(boa_provider.compiler_manager, "enrich_error")
+    actual = boa_provider.get_virtual_machine_error(exception)
     assert enrich_spy.call_count == 1
     enrich_spy.assert_called_once_with(actual)
     assert isinstance(actual, ContractLogicError)
 
 
-def test_gas_price(eth_tester_provider):
-    actual = eth_tester_provider.gas_price
+def test_gas_price(boa_provider):
+    actual = boa_provider.gas_price
     assert isinstance(actual, int)
 
 
-def test_get_code(eth_tester_provider, vyper_contract_instance):
+def test_get_code(boa_provider, vyper_contract_instance):
     address = vyper_contract_instance.address
     block_number = vyper_contract_instance.creation_metadata.block
-    assert eth_tester_provider.get_code(address) == eth_tester_provider.get_code(
-        address, block_id=block_number
-    )
+    assert boa_provider.get_code(address) == boa_provider.get_code(address, block_id=block_number)
 
 
 @pytest.mark.parametrize("tx_type", TransactionType)
-def test_prepare_transaction_with_max_gas(tx_type, eth_tester_provider, ethereum, owner):
+def test_prepare_transaction_with_max_gas(tx_type, boa_provider, ethereum, owner):
     tx = ethereum.create_transaction(type=tx_type.value, sender=owner.address)
     tx.gas_limit = None  # Undo set from validator
     assert tx.gas_limit is None, "Test setup failed - couldn't clear tx gas limit."
 
-    actual = eth_tester_provider.prepare_transaction(tx)
-    assert actual.gas_limit == eth_tester_provider.max_gas
+    actual = boa_provider.prepare_transaction(tx)
+    assert actual.gas_limit == boa_provider.max_gas
     assert actual.max_fee is not None
 
 
@@ -382,13 +361,13 @@ def test_no_comma_in_rpc_url():
 
 
 def test_send_transaction_when_no_error_and_receipt_fails(
-    mocker, mock_web3, mock_transaction, eth_tester_provider, owner, vyper_contract_instance
+    mocker, mock_web3, mock_transaction, boa_provider, owner, vyper_contract_instance
 ):
-    start_web3 = eth_tester_provider._web3
-    eth_tester_provider._web3 = mock_web3
+    start_web3 = boa_provider._web3
+    boa_provider._web3 = mock_web3
     mock_eth_tester = mocker.MagicMock()
-    original_tester = eth_tester_provider.tester
-    eth_tester_provider.__dict__["tester"] = mock_eth_tester
+    original_tester = boa_provider.tester
+    boa_provider.__dict__["tester"] = mock_eth_tester
 
     try:
         # NOTE: Value is meaningless.
@@ -417,48 +396,48 @@ def test_send_transaction_when_no_error_and_receipt_fails(
         # Execute test.
         mock_transaction.serialize_transaction.return_value = HexBytes(123123123123)
         with pytest.raises(TransactionError):
-            eth_tester_provider.send_transaction(mock_transaction)
+            boa_provider.send_transaction(mock_transaction)
 
     finally:
-        eth_tester_provider._web3 = start_web3
-        eth_tester_provider.__dict__["tester"] = original_tester
+        boa_provider._web3 = start_web3
+        boa_provider.__dict__["tester"] = original_tester
 
 
-def test_network_choice(eth_tester_provider):
-    actual = eth_tester_provider.network_choice
-    expected = "ethereum:local:test"
+def test_network_choice(boa_provider):
+    actual = boa_provider.network_choice
+    expected = "ethereum:local:boa"
     assert actual == expected
 
 
-def test_network_choice_when_custom(eth_tester_provider):
-    name = eth_tester_provider.network.name
-    eth_tester_provider.network.name = "custom"
+def test_network_choice_when_custom(boa_provider):
+    name = boa_provider.network.name
+    boa_provider.network.name = "custom"
     try:
         # NOTE: Raises this error because EthTester does not support custom
         #   connections.
         with pytest.raises(
             ProviderError, match=".*Custom network provider missing `connection_str`.*"
         ):
-            _ = eth_tester_provider.network_choice
+            _ = boa_provider.network_choice
     finally:
-        eth_tester_provider.network.name = name
+        boa_provider.network.name = name
 
 
-def test_make_request_not_exists(eth_tester_provider):
+def test_make_request_not_exists(boa_provider):
     with pytest.raises(
         APINotImplementedError,
         match="RPC method 'ape_thisDoesNotExist' is not implemented by this node instance.",
     ):
-        eth_tester_provider.make_request("ape_thisDoesNotExist")
+        boa_provider.make_request("ape_thisDoesNotExist")
 
 
 @pytest.mark.parametrize("msg", ("Method not found", "Method ape_thisDoesNotExist not found"))
-def test_make_request_not_exists_dev_nodes(eth_tester_provider, mock_web3, msg):
+def test_make_request_not_exists_dev_nodes(boa_provider, mock_web3, msg):
     """
     Handle an issue found from Base-sepolia where not-implemented RPCs
     caused HTTPErrors.
     """
-    real_web3 = eth_tester_provider._web3
+    real_web3 = boa_provider._web3
     mock_web3.eth = real_web3.eth
 
     def custom_make_request(rpc, params):
@@ -469,22 +448,22 @@ def test_make_request_not_exists_dev_nodes(eth_tester_provider, mock_web3, msg):
 
     mock_web3.provider.make_request.side_effect = custom_make_request
 
-    eth_tester_provider._web3 = mock_web3
+    boa_provider._web3 = mock_web3
     try:
         with pytest.raises(
             APINotImplementedError,
             match="RPC method 'ape_thisDoesNotExist' is not implemented by this node instance.",
         ):
-            eth_tester_provider.make_request("ape_thisDoesNotExist")
+            boa_provider.make_request("ape_thisDoesNotExist")
     finally:
-        eth_tester_provider._web3 = real_web3
+        boa_provider._web3 = real_web3
 
 
-def test_make_request_handles_http_error_method_not_allowed(eth_tester_provider, mock_web3):
+def test_make_request_handles_http_error_method_not_allowed(boa_provider, mock_web3):
     """
     Simulate what *most* of the dev providers do, like hardhat, anvil, and ganache.
     """
-    real_web3 = eth_tester_provider._web3
+    real_web3 = boa_provider._web3
     mock_web3.eth = real_web3.eth
 
     def custom_make_request(rpc, params):
@@ -494,15 +473,15 @@ def test_make_request_handles_http_error_method_not_allowed(eth_tester_provider,
         return real_web3.provider.make_request(rpc, params)
 
     mock_web3.provider.make_request.side_effect = custom_make_request
-    eth_tester_provider._web3 = mock_web3
+    boa_provider._web3 = mock_web3
     try:
         with pytest.raises(
             APINotImplementedError,
             match="RPC method 'ape_thisDoesNotExist' is not implemented by this node instance.",
         ):
-            eth_tester_provider.make_request("ape_thisDoesNotExist")
+            boa_provider.make_request("ape_thisDoesNotExist")
     finally:
-        eth_tester_provider._web3 = real_web3
+        boa_provider._web3 = real_web3
 
 
 def test_make_request_rate_limiting(mocker, ethereum, mock_web3):
@@ -532,27 +511,27 @@ def test_make_request_rate_limiting(mocker, ethereum, mock_web3):
     assert result == {"success": True}
 
 
-def test_base_fee(eth_tester_provider):
-    actual = eth_tester_provider.base_fee
-    assert actual >= eth_tester_provider.get_block("pending").base_fee
+def test_base_fee(boa_provider):
+    actual = boa_provider.base_fee
+    assert actual >= boa_provider.get_block("pending").base_fee
 
     # NOTE: Mostly doing this to ensure we are calling the fee history
     #   RPC correctly. There was a bug where we were not.
-    actual = eth_tester_provider._get_fee_history(0)
+    actual = boa_provider._get_fee_history(0)
     assert "baseFeePerGas" in actual
 
 
-def test_create_access_list(eth_tester_provider, vyper_contract_instance, owner):
+def test_create_access_list(boa_provider, vyper_contract_instance, owner):
     tx = vyper_contract_instance.setNumber.as_transaction(123, sender=owner)
     with pytest.raises(APINotImplementedError):
-        eth_tester_provider.create_access_list(tx)
+        boa_provider.create_access_list(tx)
 
 
-def test_auto_mine(eth_tester_provider, owner):
-    eth_tester_provider.auto_mine = False
-    assert not eth_tester_provider.auto_mine
+def test_auto_mine(boa_provider, owner):
+    boa_provider.auto_mine = False
+    assert not boa_provider.auto_mine
 
-    block_before = eth_tester_provider.get_block("latest").number
+    block_before = boa_provider.get_block("latest").number
     nonce_before = owner.nonce
 
     # NOTE: Before, this would wait until it timed out, because
@@ -565,16 +544,16 @@ def test_auto_mine(eth_tester_provider, owner):
     assert tx.txn_hash is not None
 
     nonce_after_tx = owner.nonce
-    block_after_tx = eth_tester_provider.get_block("latest").number
+    block_after_tx = boa_provider.get_block("latest").number
     assert nonce_before == nonce_after_tx, "Transaction should not have been mined."
     assert block_before == block_after_tx, "Block height should not have increased."
 
-    eth_tester_provider.mine()
-    block_after_mine = eth_tester_provider.get_block("latest").number
+    boa_provider.mine()
+    block_after_mine = boa_provider.get_block("latest").number
     assert block_after_mine > block_after_tx
 
-    eth_tester_provider.auto_mine = True
-    assert eth_tester_provider.auto_mine
+    boa_provider.auto_mine = True
+    assert boa_provider.auto_mine
 
 
 def test_new_when_web3_provider_uri_set():
@@ -610,15 +589,15 @@ def test_new_when_web3_provider_uri_set():
             del os.environ[WEB3_PROVIDER_URI_ENV_VAR_NAME]
 
 
-def test_account_balance_state(project, eth_tester_provider, owner):
+def test_account_balance_state(project, boa_provider, owner):
     amount = convert("100_000 ETH", int)
 
     with project.temp_config(test={"balance": amount}):
         # NOTE: Purposely using a different instance of the provider
         #   for better testing isolation.
-        provider = LocalProvider(
+        provider = TitanoboaProvider(
             name="test",
-            network=eth_tester_provider.network,
+            network=boa_provider.network,
         )
         provider.connect()
         bal = provider.get_balance(owner.address)
@@ -668,33 +647,33 @@ def test_ipc_per_network(project, key):
         # TODO: Do we want to change this in 0.9?
 
 
-def test_snapshot(eth_tester_provider):
-    snapshot = eth_tester_provider.snapshot()
+def test_snapshot(boa_provider):
+    snapshot = boa_provider.snapshot()
     assert snapshot
 
 
-def test_restore(eth_tester_provider, accounts):
+def test_restore(boa_provider, accounts):
     account = accounts[0]
     start_nonce = account.nonce
-    snapshot = eth_tester_provider.snapshot()
+    snapshot = boa_provider.snapshot()
     account.transfer(account, 0)
-    eth_tester_provider.restore(snapshot)
+    boa_provider.restore(snapshot)
     assert account.nonce == start_nonce
 
 
-def test_restore_zero(eth_tester_provider):
+def test_restore_zero(boa_provider):
     with pytest.raises(UnknownSnapshotError, match="Unknown snapshot ID '0'."):
-        eth_tester_provider.restore(0)
+        boa_provider.restore(0)
 
 
-def test_update_settings_invalidates_snapshots(eth_tester_provider, chain):
+def test_update_settings_invalidates_snapshots(boa_provider, chain):
     snapshot = chain.snapshot()
-    assert snapshot in chain._snapshots[eth_tester_provider.chain_id]
-    eth_tester_provider.update_settings({})
-    assert snapshot not in chain._snapshots[eth_tester_provider.chain_id]
+    assert snapshot in chain._snapshots[boa_provider.chain_id]
+    boa_provider.update_settings({})
+    assert snapshot not in chain._snapshots[boa_provider.chain_id]
 
 
-def test_connect_uses_cached_chain_id(mocker, mock_web3, ethereum, eth_tester_provider):
+def test_connect_uses_cached_chain_id(mocker, mock_web3, ethereum, boa_provider):
     class PluginProvider(EthereumNodeProvider):
         pass
 
@@ -709,7 +688,7 @@ def test_connect_uses_cached_chain_id(mocker, mock_web3, ethereum, eth_tester_pr
                 self.call_count += 1
                 return {"result": "0xaa36a7"}  # Sepolia
 
-            return eth_tester_provider.make_request(rpc, args)
+            return boa_provider.make_request(rpc, args)
 
     chain_id_tracker = ChainIDTracker()
     mock_web3.provider.make_request.side_effect = chain_id_tracker.make_request

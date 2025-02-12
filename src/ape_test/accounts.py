@@ -17,7 +17,7 @@ from ape.utils.misc import log_instead_of_fail
 from ape.utils.testing import generate_dev_accounts
 
 if TYPE_CHECKING:
-    from ape.api.transactions import TransactionAPI
+    from ape.api.transactions import ReceiptAPI, TransactionAPI
     from ape.types.address import AddressType
 
 
@@ -182,3 +182,18 @@ class TestAccount(TestAccountAPI):
             r=to_bytes(signed_msg.r),
             s=to_bytes(signed_msg.s),
         )
+
+    def call(
+        self,
+        txn: "TransactionAPI",
+        send_everything: bool = False,
+        private: bool = False,
+        sign: Optional[bool] = None,
+        **signer_options,
+    ) -> "ReceiptAPI":
+        """
+        Override switched the default value of ``sign`` from ``True`` to ``False``,
+        as there is no reason to sign when using Boa.
+        """
+        sign = getattr(self.provider, "signing_required", True) if sign is None else True
+        return super().call(txn, send_everything, private=private, sign=sign, **signer_options)

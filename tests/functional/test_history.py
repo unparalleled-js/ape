@@ -18,7 +18,7 @@ def test_history(sender, receiver, chain):
 
 @explorer_test
 def test_history_caches_sender_over_address_key(
-    chain, eth_tester_provider, sender, vyper_contract_container, ethereum, mock_explorer
+    chain, boa_provider, sender, vyper_contract_container, ethereum, mock_explorer
 ):
     # When getting receipts from the explorer for contracts, it includes transactions
     # made to the contract. This test shows we cache by sender and not address key.
@@ -47,7 +47,7 @@ def test_history_caches_sender_over_address_key(
 
     mock_explorer.get_account_transactions.side_effect = get_txns_patch
     network.__dict__["explorer"] = mock_explorer
-    eth_tester_provider.network = network
+    boa_provider.network = network
 
     # Previously, this would error because the receipt was cached with the wrong sender
     try:

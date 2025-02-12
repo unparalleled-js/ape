@@ -82,14 +82,14 @@ def test_poll_blocks_stop_block_not_in_future(chain_that_mined_5):
         _ = [x for x in chain_that_mined_5.blocks.poll_blocks(stop_block=bad_stop_block)]
 
 
-def test_poll_blocks(chain_that_mined_5, eth_tester_provider, owner, PollDaemon):
+def test_poll_blocks(chain_that_mined_5, boa_provider, owner, PollDaemon):
     blocks: Queue = Queue(maxsize=3)
     poller = chain_that_mined_5.blocks.poll_blocks()
 
     with PollDaemon("blocks", poller, blocks.put, blocks.full):
         # Sleep first to ensure listening before mining.
         time.sleep(1)
-        eth_tester_provider.mine(3)
+        boa_provider.mine(3)
 
     assert blocks.full()
     first = blocks.get().number
@@ -99,7 +99,7 @@ def test_poll_blocks(chain_that_mined_5, eth_tester_provider, owner, PollDaemon)
     assert second == third - 1
 
 
-def test_poll_blocks_reorg(chain_that_mined_5, eth_tester_provider, owner, PollDaemon, ape_caplog):
+def test_poll_blocks_reorg(chain_that_mined_5, boa_provider, owner, PollDaemon, ape_caplog):
     blocks: Queue = Queue(maxsize=6)
     poller = chain_that_mined_5.blocks.poll_blocks()
 
@@ -139,7 +139,7 @@ def test_poll_blocks_reorg(chain_that_mined_5, eth_tester_provider, owner, PollD
 
 
 def test_poll_blocks_timeout(
-    vyper_contract_instance, chain_that_mined_5, eth_tester_provider, owner, PollDaemon
+    vyper_contract_instance, chain_that_mined_5, boa_provider, owner, PollDaemon
 ):
     poller = chain_that_mined_5.blocks.poll_blocks(new_block_timeout=1)
 
@@ -149,7 +149,7 @@ def test_poll_blocks_timeout(
 
 
 def test_poll_blocks_reorg_with_timeout(
-    vyper_contract_instance, chain_that_mined_5, eth_tester_provider, owner, PollDaemon, ape_caplog
+    vyper_contract_instance, chain_that_mined_5, boa_provider, owner, PollDaemon, ape_caplog
 ):
     blocks: Queue = Queue(maxsize=6)
     poller = chain_that_mined_5.blocks.poll_blocks(new_block_timeout=1)
@@ -176,7 +176,7 @@ def test_poll_blocks_reorg_with_timeout(
             chain_that_mined_5.mine(3)
 
 
-def test_poll_blocks_future(chain_that_mined_5, eth_tester_provider, owner, PollDaemon):
+def test_poll_blocks_future(chain_that_mined_5, boa_provider, owner, PollDaemon):
     blocks: Queue = Queue(maxsize=3)
     poller = chain_that_mined_5.blocks.poll_blocks(
         start_block=chain_that_mined_5.blocks.head.number + 1
@@ -185,7 +185,7 @@ def test_poll_blocks_future(chain_that_mined_5, eth_tester_provider, owner, Poll
     with PollDaemon("blocks", poller, blocks.put, blocks.full):
         # Sleep first to ensure listening before mining.
         time.sleep(1)
-        eth_tester_provider.mine(3)
+        boa_provider.mine(3)
 
     assert blocks.full()
     first = blocks.get().number

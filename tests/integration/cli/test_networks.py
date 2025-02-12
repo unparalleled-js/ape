@@ -185,7 +185,7 @@ def test_list_custom_networks(integ_project, networks_runner):
 
 @run_once
 def test_run_not_subprocess_provider(networks_runner):
-    cmd = ("run", "--network", "ethereum:local:test")
+    cmd = ("run", "--network", "ethereum:local:boa")
     result = networks_runner.invoke(*cmd)
     expected = "`ape networks run` requires a provider that manages a process, not 'test'."
     assert result.exit_code != 0
@@ -194,7 +194,7 @@ def test_run_not_subprocess_provider(networks_runner):
 
 @run_once
 def test_run_custom_network(ape_cli, runner):
-    cmd = ("networks", "run", "--network", "ethereum:local:test")
+    cmd = ("networks", "run", "--network", "ethereum:local:boa")
     result = runner.invoke(ape_cli, cmd)
     expected = "`ape networks run` requires a provider that manages a process, not 'test'"
     assert result.exit_code != 0
@@ -207,7 +207,7 @@ def test_run_block_time(ape_cli, runner):
         "networks",
         "run",
         "--network",
-        "ethereum:local:test",
+        "ethereum:local:boa",
         "--block-time",
         "10",
     )

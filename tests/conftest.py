@@ -237,25 +237,25 @@ def ethereum(networks):
 
 
 @pytest.fixture(autouse=True)
-def eth_tester_provider(ethereum):
+def boa_provider(ethereum):
     # NOTE: Ensure it uses the default instance of eth-tester.
     with ethereum.local.use_provider(
-        "test", provider_settings={"chain_id": DEFAULT_TEST_CHAIN_ID}
+        "boa", provider_settings={"chain_id": DEFAULT_TEST_CHAIN_ID}
     ) as provider:
         yield provider
 
 
 @pytest.fixture
-def mock_provider(mock_web3, eth_tester_provider):
-    web3 = eth_tester_provider.web3
-    eth_tester_provider._web3 = mock_web3
-    yield eth_tester_provider
-    eth_tester_provider._web3 = web3
+def mock_provider(mock_web3, boa_provider):
+    web3 = boa_provider.web3
+    boa_provider._web3 = mock_web3
+    yield boa_provider
+    boa_provider._web3 = web3
 
 
 @pytest.fixture
-def networks_connected_to_tester(eth_tester_provider):
-    return eth_tester_provider.network_manager
+def networks_connected_to_tester(boa_provider):
+    return boa_provider.network_manager
 
 
 @pytest.fixture

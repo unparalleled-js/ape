@@ -231,14 +231,14 @@ class TestContractLogicError:
 
 
 class TestContractNotFoundError:
-    def test_local_network(self, eth_tester_provider):
+    def test_local_network(self, boa_provider):
         """
         Testing we are NOT mentioning explorer plugins
         for the local-network, as 99.9% of the time it is
         confusing.
         """
-        eth_tester_provider.network.explorer = None  # Ensure no explorer is set.
-        err = ContractNotFoundError(ZERO_ADDRESS, provider=eth_tester_provider)
+        boa_provider.network.explorer = None  # Ensure no explorer is set.
+        err = ContractNotFoundError(ZERO_ADDRESS, provider=boa_provider)
         actual = f"{err}"
         expected = f"Failed to get contract type for address '{ZERO_ADDRESS}'."
         assert actual == expected

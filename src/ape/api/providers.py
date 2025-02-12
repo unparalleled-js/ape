@@ -949,6 +949,15 @@ class TestProviderAPI(ProviderAPI):
         Enable or disable automine.
         """
 
+    @property
+    def signing_required(self) -> bool:
+        """
+        Returns ``True`` if transactions *must* be signed to work.
+        Else, returns ``False``. Providers that returns ``False`` should
+        override this property.
+        """
+        return True
+
     def _increment_call_func_coverage_hit_count(self, txn: TransactionAPI):
         """
         A helper method for incrementing a method call function hit count in a

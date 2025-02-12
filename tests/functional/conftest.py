@@ -136,7 +136,7 @@ class _ContractLogicError(ContractLogicError):
 
 @pytest.hookimpl(trylast=True, hookwrapper=True)
 def pytest_collection_finish(session):
-    with ape.networks.parse_network_choice("::test"):
+    with ape.networks.parse_network_choice("::boa"):
         # Sets the active provider
         yield
 
@@ -232,7 +232,7 @@ def sub_reverts_contract_container(sub_reverts_contract_type) -> ContractContain
 
 @pytest.fixture
 def reverts_contract_instance(
-    owner, reverts_contract_container, sub_reverts_contract_instance, eth_tester_provider
+    owner, reverts_contract_container, sub_reverts_contract_instance, boa_provider
 ) -> ContractInstance:
     return owner.deploy(
         reverts_contract_container, sub_reverts_contract_instance, required_confirmations=0
@@ -247,21 +247,17 @@ def contract_container(
 
 
 @pytest.fixture(params=("solidity", "vyper"))
-def contract_instance(
-    eth_tester_provider, request, solidity_contract_instance, vyper_contract_instance
-):
+def contract_instance(boa_provider, request, solidity_contract_instance, vyper_contract_instance):
     return solidity_contract_instance if request.param == "solidity" else vyper_contract_instance
 
 
 @pytest.fixture(params=("solidity", "vyper"))
-def fallback_contract(
-    eth_tester_provider, request, solidity_fallback_contract, vyper_fallback_contract
-):
+def fallback_contract(boa_provider, request, solidity_fallback_contract, vyper_fallback_contract):
     return solidity_fallback_contract if request.param == "solidity" else vyper_fallback_contract
 
 
 @pytest.fixture
-def ds_note_test_contract(eth_tester_provider, vyper_contract_type, owner, get_contract_type):
+def ds_note_test_contract(boa_provider, vyper_contract_type, owner, get_contract_type):
     contract_type = get_contract_type("DsNoteTest")
     contract_container = ContractContainer(contract_type=contract_type)
     return contract_container.deploy(sender=owner)
@@ -510,27 +506,27 @@ def unique_calldata():
 
 
 @pytest.fixture
-def leaf_contract(eth_tester_provider, owner, get_contract_type):
+def leaf_contract(boa_provider, owner, get_contract_type):
     ct = get_contract_type("ContractC")
     return owner.deploy(ContractContainer(ct))
 
 
 @pytest.fixture
-def middle_contract(eth_tester_provider, owner, get_contract_type, leaf_contract):
+def middle_contract(boa_provider, owner, get_contract_type, leaf_contract):
     ct = get_contract_type("ContractB")
     return owner.deploy(ContractContainer(ct), leaf_contract)
 
 
 @pytest.fixture
 def contract_with_call_depth(
-    owner, eth_tester_provider, get_contract_type, leaf_contract, middle_contract
+    owner, boa_provider, get_contract_type, leaf_contract, middle_contract
 ):
     contract = ContractContainer(get_contract_type("ContractA"))
     return owner.deploy(contract, middle_contract, leaf_contract)
 
 
 @pytest.fixture
-def sub_reverts_contract_instance(owner, sub_reverts_contract_container, eth_tester_provider):
+def sub_reverts_contract_instance(owner, sub_reverts_contract_container, boa_provider):
     return owner.deploy(sub_reverts_contract_container, required_confirmations=0)
 
 
@@ -541,8 +537,8 @@ def error_contract_container(get_contract_type):
 
 
 @pytest.fixture
-def error_contract(owner, error_contract_container, eth_tester_provider):
-    _ = eth_tester_provider  # Ensure uses eth tester
+def error_contract(owner, error_contract_container, boa_provider):
+    _ = boa_provider  # Ensure uses eth tester
     return owner.deploy(error_contract_container, 1)
 
 
@@ -688,15 +684,15 @@ def mock_sepolia(create_mock_sepolia):
 
 
 @pytest.fixture
-def create_mock_sepolia(ethereum, eth_tester_provider, vyper_contract_instance):
+def create_mock_sepolia(ethereum, boa_provider, vyper_contract_instance):
     @contextmanager
     def fn():
         # Ensuring contract exists before hack.
         # This allows the network to be past genesis which is more realistic.
         _ = vyper_contract_instance
-        eth_tester_provider.network.name = "sepolia"
-        yield eth_tester_provider.network
-        eth_tester_provider.network.name = LOCAL_NETWORK_NAME
+        boa_provider.network.name = "sepolia"
+        yield boa_provider.network
+        boa_provider.network.name = LOCAL_NETWORK_NAME
 
     return fn
 

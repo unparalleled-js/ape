@@ -12,8 +12,8 @@ class CustomClass(ManagerAccessMixin):
 
 
 @pytest.mark.parametrize("accessor", (CustomClass, CustomClass()))
-def test_provider(accessor, eth_tester_provider):
-    assert accessor.provider == eth_tester_provider
+def test_provider(accessor, boa_provider):
+    assert accessor.provider == boa_provider
 
 
 @pytest.mark.parametrize("accessor", (CustomClass, CustomClass()))

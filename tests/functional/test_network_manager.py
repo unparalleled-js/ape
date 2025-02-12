@@ -22,20 +22,20 @@ chain_id_factory = NewChainID()
 
 DEFAULT_CHOICES = {
     "::node",
-    "::test",
+    "::boa",
     ":sepolia",
     ":sepolia:node",
     ":local",
     ":mainnet",
     ":mainnet:node",
     "ethereum",
-    "ethereum::test",
+    "ethereum::boa",
     "ethereum::node",
     "ethereum:sepolia",
     "ethereum:sepolia:node",
     "ethereum:local",
     "ethereum:local:node",
-    "ethereum:local:test",
+    "ethereum:local:boa",
     "ethereum:mainnet",
     "ethereum:mainnet:node",
 }
@@ -48,7 +48,7 @@ def get_provider_with_unused_chain_id(networks_connected_to_tester):
     def fn(**more_settings):
         chain_id = chain_id_factory()
         settings = {"chain_id": chain_id, **more_settings}
-        choice = "ethereum:local:test"
+        choice = "ethereum:local:boa"
         disconnect_after = settings.pop("disconnect_after", True)
         context = networks.parse_network_choice(
             choice, disconnect_after=disconnect_after, provider_settings=settings
@@ -61,7 +61,7 @@ def get_provider_with_unused_chain_id(networks_connected_to_tester):
 @pytest.fixture
 def get_context(networks_connected_to_tester):
     def fn():
-        return networks_connected_to_tester.parse_network_choice("ethereum:local:test")
+        return networks_connected_to_tester.parse_network_choice("ethereum:local:boa")
 
     return fn
 
@@ -120,7 +120,7 @@ def test_get_network_choices_filter_network(networks):
 
 def test_get_network_choices_filter_provider(networks):
     actual = {c for c in networks.get_network_choices(provider_filter="test")}
-    expected = {"::test", ":local", "ethereum:local", "ethereum:local:test", "ethereum"}
+    expected = {"::boa", ":local", "ethereum:local", "ethereum:local:boa", "ethereum"}
     assert all(e in actual for e in expected)
 
 
@@ -217,14 +217,12 @@ def test_parse_network_choice_disconnect_after(get_provider_with_unused_chain_id
 
 
 @pytest.mark.xdist_group(name="multiple-eth-testers")
-def test_parse_network_choice_multiple_contexts(
-    eth_tester_provider, get_provider_with_unused_chain_id
-):
+def test_parse_network_choice_multiple_contexts(boa_provider, get_provider_with_unused_chain_id):
     first_context = get_provider_with_unused_chain_id()
     assert (
-        eth_tester_provider.chain_id == DEFAULT_TEST_CHAIN_ID
+        boa_provider.chain_id == DEFAULT_TEST_CHAIN_ID
     ), "Test setup failed - expecting to start on default chain ID"
-    assert eth_tester_provider.make_request("eth_chainId") == DEFAULT_TEST_CHAIN_ID
+    assert boa_provider.make_request("eth_chainId") == DEFAULT_TEST_CHAIN_ID
 
     with first_context:
         start_count = len(first_context.connected_providers)
@@ -235,8 +233,8 @@ def test_parse_network_choice_multiple_contexts(
             assert len(first_context.connected_providers) == expected_next_count
             assert len(second_context.connected_providers) == expected_next_count
 
-    assert eth_tester_provider.chain_id == DEFAULT_TEST_CHAIN_ID
-    assert eth_tester_provider.make_request("eth_chainId") == DEFAULT_TEST_CHAIN_ID
+    assert boa_provider.chain_id == DEFAULT_TEST_CHAIN_ID
+    assert boa_provider.make_request("eth_chainId") == DEFAULT_TEST_CHAIN_ID
 
 
 def test_getattr_ecosystem_with_hyphenated_name(networks, ethereum):
@@ -340,7 +338,7 @@ def test_ecosystems_when_custom_has_bad_base_ecosystem(
             _ = networks.ecosystems
 
 
-def test_fork_network_not_forkable(networks, eth_tester_provider):
+def test_fork_network_not_forkable(networks, boa_provider):
     """
     Show correct failure when trying to fork the local network.
     """
@@ -419,12 +417,10 @@ def test_fork_with_positive_block_number(networks, mock_sepolia, mock_fork_provi
     assert actual == block_id
 
 
-def test_fork_with_negative_block_number(
-    networks, mock_sepolia, mock_fork_provider, eth_tester_provider
-):
+def test_fork_with_negative_block_number(networks, mock_sepolia, mock_fork_provider, boa_provider):
     # Mine so we are past genesis.
     block_id = -1
-    block = eth_tester_provider.get_block("latest")
+    block = boa_provider.get_block("latest")
     mock_fork_provider.get_block.return_value = block
 
     with networks.fork(block_number=block_id):
@@ -435,7 +431,7 @@ def test_fork_with_negative_block_number(
     assert actual == expected
 
 
-def test_fork_past_genesis(networks, mock_sepolia, mock_fork_provider, eth_tester_provider):
+def test_fork_past_genesis(networks, mock_sepolia, mock_fork_provider, boa_provider):
     block_id = -10_000_000_000
     with pytest.raises(NetworkError, match="Unable to fork past genesis block."):
         with networks.fork(block_number=block_id):

@@ -128,9 +128,9 @@ def test_range(chain, contract_instance, owner, assert_log_values):
 
 
 def test_range_by_address(
-    mocker, chain, eth_tester_provider, accounts, contract_instance, owner, assert_log_values
+    mocker, chain, boa_provider, accounts, contract_instance, owner, assert_log_values
 ):
-    get_logs_spy = mocker.spy(eth_tester_provider.tester.ethereum_tester, "get_logs")
+    get_logs_spy = mocker.spy(boa_provider.tester.ethereum_tester, "get_logs")
     contract_instance.setAddress(accounts[1], sender=owner)
     height = chain.blocks.height
     logs = [
@@ -253,7 +253,7 @@ def test_range_negative_stop_only(contract_instance, owner):
 
 
 def test_poll_logs_stop_block_not_in_future(
-    chain_that_mined_5, vyper_contract_instance, eth_tester_provider
+    chain_that_mined_5, vyper_contract_instance, boa_provider
 ):
     bad_stop_block = chain_that_mined_5.blocks.height
 
@@ -261,7 +261,7 @@ def test_poll_logs_stop_block_not_in_future(
         _ = [x for x in vyper_contract_instance.NumberChange.poll_logs(stop_block=bad_stop_block)]
 
 
-def test_poll_logs(chain, vyper_contract_instance, eth_tester_provider, owner, PollDaemon):
+def test_poll_logs(chain, vyper_contract_instance, boa_provider, owner, PollDaemon):
     size = 3
     logs: Queue = Queue(maxsize=size)
     poller = vyper_contract_instance.NumberChange.poll_logs(start_block=0)
@@ -282,7 +282,7 @@ def test_poll_logs(chain, vyper_contract_instance, eth_tester_provider, owner, P
     assert actual[2].block_number == actual[2].block.number == actual[1].block_number + 1
 
 
-def test_poll_logs_timeout(vyper_contract_instance, eth_tester_provider, owner, PollDaemon):
+def test_poll_logs_timeout(vyper_contract_instance, boa_provider, owner, PollDaemon):
     new_block_timeout = 1
     poller = vyper_contract_instance.NumberChange.poll_logs(new_block_timeout=new_block_timeout)
 

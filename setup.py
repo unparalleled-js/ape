@@ -112,6 +112,7 @@ setup(
         "requests>=2.28.1,<3",
         "rich>=12.5.1,<14",
         "SQLAlchemy>=1.4.35",
+        "titanoboa>=0.2.5,<0.3",
         "toml; python_version<'3.11'",
         "tqdm>=4.62.3,<5.0",
         "traitlets>=5.3.0",
@@ -126,7 +127,7 @@ setup(
         "hexbytes>=1.2.1,<2",
         "py-geth>=5.2.1,<6",
         "trie>=3.0.1,<4",  # Peer: stricter pin needed for uv support.
-        "web3[tester]>=7.6.0,<8",
+        "web3[tester]>=7.6.1,<8",
         # ** Dependencies maintained by ApeWorX **
         "eip712>=0.2.10,<0.3",
         "ethpm-types>=0.6.19,<0.7",

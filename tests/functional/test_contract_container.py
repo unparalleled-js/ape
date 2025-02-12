@@ -95,7 +95,7 @@ def test_deploy_no_deployment_bytecode(owner, bytecode):
         contract.deploy(sender=owner)
 
 
-def test_deployments(owner, eth_tester_provider, vyper_contract_container):
+def test_deployments(owner, boa_provider, vyper_contract_container):
     initial_deployed_contract = vyper_contract_container.deploy(10000000, sender=owner)
     actual = vyper_contract_container.deployments[-1].address
     expected = initial_deployed_contract.address
@@ -103,7 +103,7 @@ def test_deployments(owner, eth_tester_provider, vyper_contract_container):
 
 
 def test_deploy_proxy(
-    owner, vyper_contract_instance, proxy_contract_container, chain, eth_tester_provider
+    owner, vyper_contract_instance, proxy_contract_container, chain, boa_provider
 ):
     target = vyper_contract_instance.address
     proxy = proxy_contract_container.deploy(target, sender=owner)
@@ -183,9 +183,7 @@ def test_at(vyper_contract_instance, vyper_contract_container):
 
 
 @explorer_test
-def test_at_fetch_from_explorer_false(
-    project_with_contract, mock_explorer, eth_tester_provider, owner
-):
+def test_at_fetch_from_explorer_false(project_with_contract, mock_explorer, boa_provider, owner):
     # Grab the container - note: this always compiles!
     container = project_with_contract.Contract
     instance = container.deploy(sender=owner)
@@ -194,7 +192,7 @@ def test_at_fetch_from_explorer_false(
     project_with_contract.clean()
 
     # Simulate having an explorer plugin installed (e.g. ape-etherscan).
-    eth_tester_provider.network.__dict__["explorer"] = mock_explorer
+    boa_provider.network.__dict__["explorer"] = mock_explorer
 
     # Attempt to create an instance. It should NOT use the explorer at all!
     instance2 = container.at(instance.address, fetch_from_explorer=False)
@@ -204,5 +202,5 @@ def test_at_fetch_from_explorer_false(
     assert mock_explorer.get_contract_type.call_count == 0
 
     # Clean up test.
-    eth_tester_provider.network.explorer = None
-    assert eth_tester_provider.network.explorer is None
+    boa_provider.network.explorer = None
+    assert boa_provider.network.explorer is None

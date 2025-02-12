@@ -1,299 +1,285 @@
 import re
-from ast import literal_eval
-from collections.abc import Iterator
+import time
+from abc import ABC
+from collections import defaultdict
+from copy import copy
 from functools import cached_property
-from pathlib import Path
-from re import Pattern
-from typing import TYPE_CHECKING, Any, Optional, cast
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, ClassVar, Iterable, Iterator, Optional, Union
 
-from eth.exceptions import HeaderNotFound
-from eth_pydantic_types import HexBytes
-from eth_tester import EthereumTester  # type: ignore
-from eth_tester.backends import PyEVMBackend  # type: ignore
-from eth_tester.backends.pyevm.main import setup_tester_chain  # type: ignore
-from eth_tester.exceptions import TransactionFailed  # type: ignore
-from eth_utils import is_0x_prefixed, to_hex
-from eth_utils.exceptions import ValidationError
-from eth_utils.toolz import merge
-from web3 import EthereumTesterProvider, Web3
-from web3.exceptions import ContractLogicError as Web3ContractLogicError
-from web3.providers.eth_tester.defaults import API_ENDPOINTS, static_return
-from web3.types import TxParams
+from eth.constants import ZERO_ADDRESS
+from eth.exceptions import Revert
+from eth.vm.spoof import SpoofTransaction
+from eth_abi import decode
+from eth_pydantic_types import HexBytes, HexStr
+from eth_utils import ValidationError, to_hex
 
 from ape.api.providers import BlockAPI, TestProviderAPI
 from ape.exceptions import (
-    APINotImplementedError,
+    BlockNotFoundError,
     ContractLogicError,
     ProviderError,
-    ProviderNotConnectedError,
-    TransactionError,
-    UnknownSnapshotError,
+    TransactionNotFoundError,
     VirtualMachineError,
 )
-from ape.logging import logger
-from ape.types.address import AddressType
-from ape.utils.misc import gas_estimation_error_message
-from ape.utils.testing import DEFAULT_TEST_HD_PATH
-from ape_ethereum.provider import Web3Provider
-from ape_ethereum.trace import TraceApproach, TransactionTrace
 from ape_ethereum.transactions import TransactionStatusEnum
-from ape_test.config import EthTesterProviderConfig
+from ape_test.accounts import TestAccount
+from ape_test.config import BoaForkConfig, ForkBlockIdentifier
+from ape_test.trace import BoaTrace
+from ape_test.transactions import BoaReceipt, BoaTransaction
+from ape_test.utils import convert_boa_log
 
 if TYPE_CHECKING:
-    from ape.api.accounts import TestAccountAPI
-    from ape.api.trace import TraceAPI
-    from ape.api.transactions import ReceiptAPI, TransactionAPI
-    from ape.types.events import ContractLog, LogFilter
-    from ape.types.vm import BlockID, SnapshotID
-    from ape_test.config import ApeTestConfig
+    from boa.environment import Env  # type: ignore
+    from boa.util.open_ctx import Open  # type: ignore
+
+    from ape.api import ForkedNetworkAPI, ReceiptAPI, TestAccountAPI, TraceAPI, TransactionAPI
+    from ape.api.networks import ProviderContextManager
+    from ape.types import AddressType, BlockID, ContractCode, ContractLog, LogFilter, SnapshotID
+    from ape_test.config import ApeTestConfig, BoaConfig
 
 
-class ApeEVMBackend(PyEVMBackend):
+class BaseTitanoboaProvider(TestProviderAPI, ABC):
     """
-    A lazier version of PyEVMBackend for the Ape framework.
+    A provider for Ape using titanoboa as its backend.
     """
 
-    def __init__(self, config: "ApeTestConfig"):
-        self.config = config
-        # Lazily set.
-        self._chain = None
+    NAME: ClassVar[str] = "boa"
 
-    @property
-    def hd_path(self) -> str:
-        return (self.config.hd_path or DEFAULT_TEST_HD_PATH).rstrip("/")
+    # Flags.
+    _connected: bool = False
 
-    @property
-    def balance(self) -> int:
-        return self.config.balance
+    # Account state.
+    _accounts: dict[int, "TestAccount"] = {}
+    _nonces: defaultdict["AddressType", int] = defaultdict(int)
 
-    @property
-    def genesis_state(self) -> dict:
-        return self.generate_genesis_state(
-            mnemonic=self.config.mnemonic,
-            overrides={"balance": self.balance},
-            num_accounts=self.config.number_of_accounts,
-            hd_path=self.hd_path,
-        )
+    # Transaction state.
+    _canonical_transactions: dict[str, dict] = {}
+    _pending_transactions: dict[str, dict] = {}
 
-    @cached_property
-    def _setup_tester_chain(self):
-        return setup_tester_chain(
-            None,
-            self.genesis_state,
-            self.config.number_of_accounts,
-            None,
-            self.config.mnemonic,
-            self.config.hd_path,
-        )
+    # Snapshot state.
+    _snapshot_state: dict["SnapshotID", dict] = {}
 
-    @property
-    def account_keys(self):
-        return self._setup_tester_chain[0]
+    # Block state.
+    _blocks: list[dict] = []
 
-    @property
-    def chain(self):
-        if self._chain is None:
-            # Initial chain.
-            self._chain = self._setup_tester_chain[1]
-
-        return self._chain
-
-    @chain.setter
-    def chain(self, value):
-        self._chain = value  # Changes during snapshot reverting.
-
-
-class ApeTester(EthereumTesterProvider):
-    def __init__(
-        self, config: "ApeTestConfig", chain_id: int, backend: Optional[ApeEVMBackend] = None
-    ):
-        self.config = config
-        self.chain_id = chain_id
-        self._backend = backend
-        self._ethereum_tester = None if backend is None else EthereumTester(backend)
-
-    @property
-    def ethereum_tester(self) -> EthereumTester:
-        if self._ethereum_tester is None:
-            self._backend = ApeEVMBackend(self.config)
-            self._ethereum_tester = EthereumTester(self._backend)
-
-        return self._ethereum_tester
-
-    @ethereum_tester.setter
-    def ethereum_tester(self, value):
-        self._ethereum_tester = value
-        self._backend = value.backend
-
-    @property
-    def backend(self) -> "ApeEVMBackend":
-        if self._backend is None:
-            self._backend = ApeEVMBackend(self.config)
-            self._ethereum_tester = EthereumTester(self._backend)
-
-        return self._backend
-
-    @backend.setter
-    def backend(self, value):
-        self._backend = value
-        self._ethereum_tester = EthereumTester(self._backend)
+    # Time.
+    # Used when `set_timestamp()` is called.
+    _pending_timestamp: Optional[int] = None
+    # Used when timestamp was set but then mined to keep us in the future.
+    _timestamp_offset: int = 0
+    _execution_timestamp: Optional[int] = None  # Used when auto mine is off.
 
     @cached_property
-    def api_endpoints(self) -> dict:  # type: ignore
-        endpoints = {**API_ENDPOINTS}
-        endpoints["eth"] = merge(endpoints["eth"], {"chainId": static_return(self.chain_id)})
-        return endpoints
+    def boa(self) -> ModuleType:
+        # perf: cached property is slightly more performant
+        #   than using Python module caching system alone.
+        import boa  # type: ignore
 
-
-class LocalProvider(TestProviderAPI, Web3Provider):
-    _evm_backend: Optional[PyEVMBackend] = None
-    _CANNOT_AFFORD_GAS_PATTERN: Pattern = re.compile(
-        r"Sender b'[\\*|\w]*' cannot afford txn gas (\d+) with account balance (\d+)"
-    )
-    _INVALID_NONCE_PATTERN: Pattern = re.compile(
-        r"Invalid transaction nonce: Expected (\d+), but got (\d+)"
-    )
+        return boa
 
     @property
-    def config(self) -> "ApeTestConfig":  # type: ignore
-        return super().config  # type: ignore
+    def env(self) -> "Env":
+        raise NotImplementedError("Must be implemented by a subclass.")
 
     @property
-    def evm_backend(self) -> ApeEVMBackend:
-        return self.tester.backend
+    def client_version(self) -> str:
+        return "titanoboa"
 
-    @cached_property
-    def tester(self) -> ApeTester:
-        return ApeTester(self.config, self.settings.chain_id)
+    @property
+    def is_connected(self) -> bool:
+        return self._connected
+
+    @property
+    def config(self) -> "BoaConfig":  # type: ignore
+        return self.config_manager.get_config("test").titanoboa
+
+    @property
+    def apetest_config(self) -> "ApeTestConfig":
+        return self.config_manager.get_config("test")
+
+    @property
+    def chain_id(self) -> int:
+        return self.env.evm.patch.chain_id
 
     @property
     def auto_mine(self) -> bool:
-        return self.tester.ethereum_tester.auto_mine_transactions
+        return self.config.auto_mine
 
     @auto_mine.setter
-    def auto_mine(self, value: Any) -> None:
-        if value is True:
-            self.tester.ethereum_tester.enable_auto_mine_transactions()
-        elif value is False:
-            self.tester.ethereum_tester.disable_auto_mine_transactions()
-        else:
-            raise TypeError("Expecting bool-value for auto_mine setter.")
+    def auto_mine(self, value: bool):
+        self.config.auto_mine = value
 
     @property
-    def max_gas(self) -> int:
-        return self.evm_backend.get_block_by_number("latest")["gas_limit"]
-
-    @property
-    def http_uri(self) -> Optional[str]:
-        return None
-
-    @property
-    def ws_uri(self) -> Optional[str]:
-        return None
-
-    @property
-    def ipc_path(self) -> Optional[Path]:
-        return None
-
-    def connect(self):
-        self.__dict__.pop("tester", None)
-        self._web3 = Web3(self.tester)
-        # Handle disabling auto-mine if the user requested via config.
-        if self.settings.auto_mine is False:
-            self.auto_mine = False  # type: ignore[misc]
-
-    def disconnect(self):
-        # NOTE: This type ignore seems like a bug in pydantic.
-        self._web3 = None
-        self._evm_backend = None
-        self.provider_settings = {}
-
-        # Invalidate snapshots.
-        self.chain_manager._snapshots[self.chain_id] = []
-
-    def update_settings(self, new_settings: dict):
-        self.provider_settings = {**self.provider_settings, **new_settings}
-        self.disconnect()
-        self.connect()
-
-    def estimate_gas_cost(
-        self, txn: "TransactionAPI", block_id: Optional["BlockID"] = None, **kwargs
-    ) -> int:
-        if isinstance(self.network.gas_limit, int):
-            return self.network.gas_limit
-
-        estimate_gas = self.web3.eth.estimate_gas
-
-        # NOTE: Using JSON mode since used as request data.
-        txn_dict = txn.model_dump(by_alias=True, mode="json", exclude={"gas_limit", "chain_id"})
-        txn_data = cast(TxParams, txn_dict)
-
-        try:
-            return estimate_gas(txn_data, block_identifier=block_id)
-        except (ValidationError, TransactionFailed, Web3ContractLogicError) as err:
-            ape_err = self.get_virtual_machine_error(err, txn=txn, set_ape_traceback=False)
-            gas_match = self._INVALID_NONCE_PATTERN.match(str(ape_err))
-            if gas_match:
-                # Sometimes, EthTester is confused about the sender nonce
-                # during gas estimation. Retry using the "expected" gas
-                # and then set it back.
-                expected_nonce, actual_nonce = gas_match.groups()
-                txn.nonce = int(expected_nonce)
-
-                # NOTE: Using JSON mode since used as request data.
-                txn_params: TxParams = cast(TxParams, txn.model_dump(by_alias=True, mode="json"))
-
-                value = estimate_gas(txn_params, block_identifier=block_id)
-                txn.nonce = int(actual_nonce)
-                return value
-
-            elif isinstance(ape_err, ContractLogicError):
-                raise ape_err.with_ape_traceback() from err
-            else:
-                message = gas_estimation_error_message(ape_err)
-                raise TransactionError(
-                    message,
-                    base_err=ape_err,
-                    txn=txn,
-                    source_traceback=lambda: ape_err.source_traceback,
-                    set_ape_traceback=False,
-                ) from ape_err
-
-    @property
-    def settings(self) -> EthTesterProviderConfig:
-        return EthTesterProviderConfig.model_validate(
-            {**self.config.provider.model_dump(), **self.provider_settings}
-        )
-
-    @property
-    def supports_tracing(self) -> bool:
+    def signing_required(self) -> bool:
         return False
 
     @cached_property
-    def chain_id(self) -> int:
-        try:
-            result = self.make_request("eth_chainId")
-        except ProviderNotConnectedError:
-            result = self.settings.chain_id
+    def mnemonic_seed(self) -> bytes:
+        # perf: lazy imports so module loads faster.
+        from eth_account.hdaccount.mnemonic import Mnemonic
 
-        return result
+        return Mnemonic.to_seed(self.apetest_config.mnemonic)
+
+    @cached_property
+    def hdpath_format(self) -> str:
+        hd_path = self.apetest_config.hd_path
+        return hd_path if "{}" in hd_path or "{0}" in hd_path else f"{hd_path.rstrip('/')}/{{}}"
+
+    @property
+    def earliest_block(self) -> "BlockAPI":
+        return self.get_block_by_number(0)
+
+    @property
+    def latest_block(self) -> "BlockAPI":
+        latest_block_number = self.env.evm.patch.block_number
+        return self.get_block_by_number(latest_block_number)
+
+    @property
+    def pending_block(self) -> "BlockAPI":
+        header = self.env.evm.chain.get_block().header
+        block_number = self.env.evm.patch.block_number + 1
+        timestamp = self.pending_timestamp
+        return self._init_blockapi(header, block_number, timestamp)
+
+    @property
+    def pending_timestamp(self) -> int:
+        if self._execution_timestamp is not None:
+            # Use the same time from last execution (so it retains in the block).
+            return self._execution_timestamp
+
+        elif self._pending_timestamp is not None:
+            # Time is frozen (via `set_timestamp()`).
+            return self._pending_timestamp
+
+        # NOTE: self._timestamp_offset is > 0 when set_timestamp has
+        #   been called and we have since mined the block using the
+        #   frozen time. This keeps us passed that point.
+        return int(time.time()) + self._timestamp_offset
 
     @property
     def gas_price(self) -> int:
-        return self.base_fee  # no miner tip
+        return self.env.get_gas_price()
 
     @property
-    def priority_fee(self) -> int:
-        """Returns 0 because test chains do not care about priority fees."""
-        return 0
+    def max_gas(self) -> int:
+        return self.env.evm.get_gas_limit()
 
-    @property
-    def base_fee(self) -> int:
-        """
-        EthTester does not implement RPC `eth_feeHistory`.
-        Returns the last base fee on chain.
-        """
-        return self._get_last_base_fee()
+    @cached_property
+    def _reusable_header(self):
+        # NOTE: We use this header only as a base,
+        #   this chain is all very made-up. It being
+        #   the canonical-head is irrelevant here.
+        return self.env.evm.chain.get_canonical_head()
+
+    def connect(self):
+        _ = self.env
+        self._connected = True
+        # Add genesis block.
+        self._blocks.append({"ts": self.env.evm.patch.timestamp})
+        self.env.evm.patch.block_number = 0
+
+        if self._accounts:
+            # Accounts have already been accessed, maybe through pytest
+            # fixtures; and we have changed networks. We must ensure
+            # they are configured with a balance. Clearing them on
+            # disconnect does not work because they might be cached in pytest.
+            for acct in self._accounts.values():
+                self.env.set_balance(acct.address, self.apetest_config.balance)
+
+    def disconnect(self):
+        self.boa.reset_env()  # type: ignore
+        self._blocks = []
+        self._pending_timestamp = None
+        self._timestamp_offset = 0
+        self._canonical_transactions = {}
+        self._pending_transactions = {}
+        self._nonces = defaultdict(int)
+        self._snapshot_state = {}
+        self._execution_timestamp = None
+
+    def update_settings(self, new_settings: dict):
+        self.provider_settings = new_settings
+
+    def get_balance(self, address: "AddressType", block_id: Optional["BlockID"] = None) -> int:
+        return self.env.get_balance(address)
+
+    def get_code(
+        self, address: "AddressType", block_id: Optional["BlockID"] = None
+    ) -> "ContractCode":
+        return self.env.get_code(address)
+
+    def make_request(self, rpc: str, parameters: Optional[Iterable] = None) -> Any:
+        raise NotImplementedError()
+
+    def estimate_gas_cost(self, txn: "TransactionAPI", block_id: Optional["BlockID"] = None) -> int:
+        receiver_bytes = HexBytes(txn.receiver) if txn.receiver else ZERO_ADDRESS
+        evm_tx_data = {
+            "data": txn.data,
+            "gas": txn.gas,
+            "gas_price": 0,
+            "nonce": txn.nonce or 0,
+            "to": receiver_bytes,
+            "value": txn.value,
+        }
+        sender_bytes = HexBytes(txn.sender) if txn.sender else ZERO_ADDRESS
+        try:
+            return self._estimate_spoof_transaction(evm_tx_data, sender_bytes)
+        except ValidationError as err:
+            # TODO: Figure out why this happens...
+            if match := re.match(
+                r"Invalid transaction nonce: Expected (\d*), but got \d*", f"{err}"
+            ):
+                expected = int(match.groups()[0])
+                evm_tx_data["nonce"] = expected
+                return self._estimate_spoof_transaction(evm_tx_data, sender_bytes)
+
+            raise  # Raise the error as-is.
+
+    def _estimate_spoof_transaction(self, transaction_dict: dict, sender: bytes) -> int:
+        evm_tx = self.env.evm.chain.create_unsigned_transaction(**transaction_dict)
+        spoof_tx = SpoofTransaction(evm_tx, from_=sender)
+        return self.env.evm.chain.estimate_gas(spoof_tx)
+
+    def get_block(self, block_id: "BlockID") -> BlockAPI:
+        # First, check all the sane inputs.
+        if isinstance(block_id, int):
+            return self.get_block_by_number(int(block_id))
+        elif block_id == "earliest":
+            return self.earliest_block
+        elif block_id == "latest":
+            return self.latest_block
+        elif block_id == "pending":
+            return self.pending_block
+        elif isinstance(block_id, bytes):
+            return self.get_block_by_hash(block_id)
+
+        # Next, validate wilder inputs.
+        try:
+            bytes_val = HexBytes(block_id)
+        except Exception as err:
+            raise BlockNotFoundError(block_id) from err
+
+        bytes_len = len(bytes_val)
+        return (
+            self.get_block_by_hash(bytes_val)
+            if bytes_len == 32
+            else self.get_block_by_number(int(to_hex(bytes_val), 16))
+        )
+
+    def get_block_by_number(self, number: int) -> "BlockAPI":
+        raise NotImplementedError("Must be implemented in sub-class,")
+
+    def get_block_by_hash(self, block_hash: bytes) -> "BlockAPI":
+        raise NotImplementedError("Must be implemented in sub-class,")
+
+    def _get_block_index_from_hash(self, block_hash: bytes) -> int:
+        # NOTE: This is the block **index** because in the case of forked chains,
+        #   the block number is much higher than the index.
+        header = self._reusable_header
+
+        # NOTE: Hashes are made up from the reusable hash plus the block number
+        return int(to_hex(block_hash), 16) - int(to_hex(header.hash), 16)
 
     def send_call(
         self,
@@ -301,287 +287,509 @@ class LocalProvider(TestProviderAPI, Web3Provider):
         block_id: Optional["BlockID"] = None,
         state: Optional[dict] = None,
         **kwargs,
-    ) -> HexBytes:
-        # NOTE: Using JSON mode since used as request data.
-        data = txn.model_dump(mode="json", exclude_none=True)
+    ) -> "HexBytes":
+        if not txn.receiver:
+            raise ProviderError("Missing receiver.")
 
-        state = kwargs.pop("state_override", None)
-        call_kwargs: dict = {"block_identifier": block_id, "state_override": state}
-        raise_on_revert = kwargs.get("raise_on_revert", txn.raise_on_revert)
-
-        # Remove unneeded properties
-        data.pop("gas", None)
-        data.pop("gasLimit", None)
-        data.pop("maxFeePerGas", None)
-        data.pop("maxPriorityFeePerGas", None)
-        data.pop("signature", None)
-
-        tx_params = cast(TxParams, data)
-        vm_err = None
+        computation = self._execute_code(txn.data, txn.gas_limit, receiver=txn.receiver)
         try:
-            result = self.web3.eth.call(tx_params, **call_kwargs)
-        except ValidationError as err:
-            vm_err = VirtualMachineError(base_err=err)
-            if raise_on_revert:
-                raise vm_err from err
-            else:
-                result = HexBytes("0x")
+            computation.raise_if_error()
+        except Revert as err:
+            raise self.get_virtual_machine_error(err) from err
 
-        except (TransactionFailed, Web3ContractLogicError) as err:
-            vm_err = self.get_virtual_machine_error(err, txn=txn, set_ape_traceback=False)
-            if raise_on_revert:
-                raise vm_err from err
-            else:
-                result = HexBytes("0x")
+        return HexBytes(computation.output)
 
-        self._increment_call_func_coverage_hit_count(txn)
-        if vm_err:
-            logger.error(vm_err)
+    def get_receipt(self, txn_hash: str, **kwargs) -> "ReceiptAPI":
+        try:
+            data = self._canonical_transactions[txn_hash]
+        except KeyError as err:
+            raise TransactionNotFoundError(txn_hash) from err
 
-        return HexBytes(result)
+        return BoaReceipt(**data)
+
+    def get_transactions_by_block(self, block_id: "BlockID") -> Iterator["TransactionAPI"]:
+        block = self.get_block(block_id)
+        if block.number is not None:
+            for txn_hash in self._blocks[block.number].get("txns", []):
+                data = self._canonical_transactions[txn_hash]
+                data["txn_hash"] = HexBytes(data["txn_hash"])
+                yield BoaTransaction(**data)
+
+    def prepare_transaction(self, txn: "TransactionAPI") -> "TransactionAPI":
+        txn.max_fee = 0
+        txn.max_priority_fee = 0
+        txn.gas_limit = self.env.evm.get_gas_limit()
+        txn.chain_id = self.chain_id
+        txn.sender = txn.sender or to_hex(ZERO_ADDRESS)
+
+        if txn.nonce is None and txn.sender:
+            txn.nonce = self._nonces[txn.sender]
+
+        return txn
 
     def send_transaction(self, txn: "TransactionAPI") -> "ReceiptAPI":
-        vm_err = None
-        txn_dict = None
-        try:
-            txn_hash = self.tester.ethereum_tester.send_raw_transaction(
-                to_hex(txn.serialize_transaction())
+        # Set block.timestamp/number for execution. This must be the
+        # same during execution as it will be in the block.
+        execution_timestamp = self.pending_timestamp
+        self._pending_timestamp = None
+        new_block_number = self.env.evm.patch.block_number + 1
+        self.env.evm.patch.timestamp = execution_timestamp
+        self.env.evm.patch.block_number = new_block_number
+
+        # Process tx data.
+        if txn.receiver:
+            # Method call.
+            computation = self._execute_code(
+                txn.data,
+                txn.gas_limit,
+                is_modifying=True,
+                sender=txn.sender,
+                receiver=txn.receiver,
+                value=txn.value,
             )
-        except (ValidationError, TransactionFailed, Web3ContractLogicError) as err:
-            vm_err = self.get_virtual_machine_error(err, txn=txn, set_ape_traceback=False)
-            if txn.raise_on_revert:
-                raise vm_err from err
-            else:
-                txn_hash = to_hex(txn.txn_hash)
 
-        required_confirmations = txn.required_confirmations or 0
-        txn_dict = txn_dict or txn.model_dump(mode="json")
-
-        # Signature is typically excluded from the model fields,
-        # so we have to include it manually.
-        txn_dict["signature"] = txn.signature
-
-        if vm_err or not self.auto_mine:
-            receipt_data = {
-                **txn_dict,
-                "block_number": -1,  # Not yet confirmed,
-                "error": vm_err,
-                "provider": self,
-                "required_confirmations": required_confirmations,
-                "status": (
-                    TransactionStatusEnum.FAILING if vm_err else TransactionStatusEnum.NO_ERROR
-                ),
-                "txn_hash": txn_hash,
-            }
-            receipt = self.network.ecosystem.decode_receipt(receipt_data)
         else:
-            receipt = self.get_receipt(
-                txn_hash, required_confirmations=required_confirmations, transaction=txn_dict
+            # Deploy.
+            contract_address, computation = self.env.deploy(
+                bytecode=txn.data,
+                gas=txn.gas_limit,
+                sender=txn.sender,
+                value=txn.value,
             )
 
-        # NOTE: Caching must happen before error enrichment.
-        self.chain_manager.history.append(receipt)
+        revert = None
+        try:
+            computation.raise_if_error()
+        except Revert as err:
+            # The transaction failed. Continue mining the block
+            # before handling.
+            revert = err
 
-        if receipt.failed:
-            txn_dict["nonce"] += 1
-            txn_params = cast(TxParams, txn_dict)
-            txn_dict.pop("signature", None)
+        # Figure out the transaction's hash.
+        if txn.signature:
+            txn_hash = to_hex(txn.txn_hash)
+        else:
+            # Impersonated transaction. Make one up using the sender.
+            # NOTE: We use HexStr.__eth_pydantic_validate__ to handle even-digit padding so
+            #   hashes are always found (in the case they get corrected later).
+            txn_hash = HexStr.__eth_pydantic_validate__(int(txn.sender, 16) + txn.nonce)
 
-            # Replay txn to get revert reason
-            try:
-                self.web3.eth.call(txn_params)
-            except (ValidationError, TransactionFailed, Web3ContractLogicError) as err:
-                vm_err = self.get_virtual_machine_error(err, txn=receipt, set_ape_traceback=False)
-                receipt.error = vm_err
-                if txn.raise_on_revert:
-                    raise vm_err from err
+        logs: list[dict] = [
+            convert_boa_log(
+                log,
+                blockNumber=new_block_number,
+                logIndex=log_idx,
+                transactionHash=txn_hash,
+                transactionIndex=0,
+            )
+            for log_idx, log in enumerate(computation.get_log_entries())
+        ]
+        status = TransactionStatusEnum.NO_ERROR if revert is None else TransactionStatusEnum.FAILING
+        data = {
+            "block_number": new_block_number,
+            "computation": computation,
+            "contract_address": next(iter(computation.contracts_created), None),
+            "data": to_hex(txn.data),
+            "gas_limit": txn.gas_limit,
+            "gas_price": 0,
+            "gas_used": computation.get_gas_used(),
+            "logs": logs,
+            "nonce": txn.nonce,
+            "revert": revert,
+            "signature": txn.signature,
+            "status": status,
+            "to": txn.receiver,
+            "transaction": txn,
+            "txn_hash": txn_hash,
+        }
+        receipt = BoaReceipt(**data)
 
-            if txn.raise_on_revert:
-                # If we get here, for some reason the tx-replay did not produce
-                # a VM error.
-                receipt.raise_for_status()
+        # Prepare new block/transaction.
+        if self.auto_mine:
+            # Advance the chain.
+            self._blocks.append({"ts": execution_timestamp, "txns": [txn_hash]})
+            self._canonical_transactions[txn_hash] = data
+        else:
+            # Will become canon once `self.mine()` is called.
+            self._pending_transactions[txn_hash] = data
+            # Undo chain-changes until manually mined.
+            self.env.evm.patch.timestamp = self._blocks[-1]["ts"]
+            self.env.evm.patch.block_number = self.env.evm.patch.block_number - 1
 
-        if receipt.error:
-            logger.error(receipt.error)
+        # Bump sender's nonce.
+        self._nonces[txn.sender] = self._nonces[txn.sender] + 1
+
+        if revert is not None and txn.raise_on_revert:
+            raise self.get_virtual_machine_error(revert, txn=txn) from revert
 
         return receipt
 
+    def get_contract_logs(self, log_filter: "LogFilter") -> Iterator["ContractLog"]:
+        yield from []
+
     def snapshot(self) -> "SnapshotID":
-        return self.evm_backend.take_snapshot()
+        snapshot = self.env.evm.snapshot()
+
+        self._snapshot_state[snapshot] = {
+            "block_number": self.env.evm.patch.block_number,
+            "nonces": copy(self._nonces),  # TODO: Use less memory.
+        }
+
+        return snapshot
 
     def restore(self, snapshot_id: "SnapshotID"):
-        # NOTE: Snapshot ID can be 0!
-        if snapshot_id is None:
-            return
-
-        current_hash = self._get_latest_block_rpc().get("hash")
-        if current_hash == snapshot_id:
-            return
-
+        # Undoes any chain-state (e.g. deployments, storage, balances).
+        self.env.evm.revert(snapshot_id)
         try:
-            return self.evm_backend.revert_to_snapshot(snapshot_id)
-        except (HeaderNotFound, ValidationError):
-            raise UnknownSnapshotError(snapshot_id)
+            state = self._snapshot_state.pop(snapshot_id)
+        except KeyError:
+            return
+
+        block_number = state["block_number"]
+        current_block_number = self.env.evm.patch.block_number
+        self.env.evm.patch.block_number = block_number
+
+        if block_number <= self.env.evm.patch.block_number:
+            try:
+                old_block = self._blocks[block_number]
+            except IndexError:
+                pass
+            else:
+                self.env.evm.patch.timestamp = old_block["ts"]
+
+            new_height = block_number + 1
+
+            # Clear transactions.
+            for block_to_remove in range(new_height, current_block_number + 1):
+                try:
+                    block = self._blocks[block_to_remove]
+                except IndexError:
+                    continue
+
+                for transaction_hash in block.get("txns", []):
+                    self._canonical_transactions.pop(transaction_hash, None)
+
+            # Clear blocks.
+            self._blocks = self._blocks[:new_height]
+
+        self._nonces = state["nonces"]
 
     def set_timestamp(self, new_timestamp: int):
-        current_timestamp = self.evm_backend.get_block_by_number("pending")["timestamp"]
-        if new_timestamp == current_timestamp:
-            # no change, return immediately
-            return
-
-        try:
-            self.evm_backend.time_travel(new_timestamp)
-        except ValidationError as err:
-            pattern = re.compile(
-                r"timestamp must be strictly later than parent, "
-                r"but is 0 seconds before\.\n- child\s{2}: (\d*)\n- parent : (\d*)\.\s*"
-            )
-            if match := re.match(pattern, str(err)):
-                if groups := match.groups():
-                    if groups[0].strip() == groups[1].strip():
-                        # Handle race condition when block headers are the same.
-                        # Treat as noop, same as pre-check.
-                        return
-
-            raise ProviderError(f"Failed to time travel: {err}") from err
+        self._pending_timestamp = new_timestamp
 
     def mine(self, num_blocks: int = 1):
-        self.evm_backend.mine_blocks(num_blocks)
+        if self._pending_transactions:
+            for tx_hash, tx in self._pending_transactions.items():
+                self._canonical_transactions[tx_hash] = tx
 
-    def get_balance(self, address: AddressType, block_id: Optional["BlockID"] = None) -> int:
-        # perf: Using evm_backend directly instead of going through web3.
-        return self.evm_backend.get_balance(
-            HexBytes(address), block_number="latest" if block_id is None else block_id
+            # Reset so the next execution-set uses the real pending timestamp.
+            self._execution_timestamp = None
+
+        self._advance_chain(
+            blocks=num_blocks, transaction_hashes=list(self._pending_transactions.keys())
         )
+        self._pending_transactions = {}
 
-    def get_nonce(self, address: AddressType, block_id: Optional["BlockID"] = None) -> int:
-        return self.evm_backend.get_nonce(
-            HexBytes(address), block_number="latest" if block_id is None else block_id
-        )
+    def _advance_chain(self, blocks: int = 1, transaction_hashes: Optional[list] = None):
+        for _ in range(blocks):
+            # NOTE: auto-mine is off, the pending timestamp refers to the timestamp
+            #   set before executing any EVM code (transactions), so it is the same
+            #   in the block as it was when executed.
+            timestamp = self.pending_timestamp
 
-    def get_contract_logs(self, log_filter: "LogFilter") -> Iterator["ContractLog"]:
-        from_block = max(0, log_filter.start_block)
+            if self._pending_timestamp is not None:
+                # Unfreeze time.
+                self._timestamp_offset = timestamp - int(time.time())
+                self._pending_timestamp = None
 
-        if log_filter.stop_block is None:
-            to_block = None
-        else:
-            latest_block = self._get_latest_block_rpc().get("number")
-            to_block = (
-                min(latest_block, log_filter.stop_block)
-                if latest_block is not None
-                else log_filter.stop_block
-            )
+            new_block: dict = {"ts": timestamp}
+            self._blocks.append(new_block)
+            self.env.evm.patch.block_number += 1
+            self.env.evm.patch.timestamp = timestamp
 
-        log_gen = self.tester.ethereum_tester.get_logs(
-            address=log_filter.addresses,
-            from_block=from_block,
-            to_block=to_block,
-            topics=log_filter.topic_filter,
-        )
-        yield from self.network.ecosystem.decode_logs(log_gen, *log_filter.events)
-
-    def get_test_account(self, index: int) -> "TestAccountAPI":
-        # NOTE: No need to cache here because it happens at the TestAccountManager already.
-        try:
-            private_key = self.evm_backend.account_keys[index]
-        except IndexError as err:
-            raise IndexError(f"No account at index '{index}'") from err
-
-        address = private_key.public_key.to_canonical_address()
-        return self.account_manager.init_test_account(
-            index,
-            cast(AddressType, to_hex(address)),
-            str(private_key),
-        )
-
-    def add_account(self, private_key: str):
-        self.evm_backend.add_account(private_key)
-
-    def _get_last_base_fee(self) -> int:
-        base_fee = self.evm_backend.get_block_by_number("pending").get("base_fee_per_gas", None)
-        if base_fee is not None:
-            return base_fee
-
-        raise APINotImplementedError("No base fee found in block.")
-
-    def get_transaction_trace(self, transaction_hash: str, **kwargs) -> "TraceAPI":
-        if "call_trace_approach" not in kwargs:
-            kwargs["call_trace_approach"] = TraceApproach.BASIC
-
-        return EthTesterTransactionTrace(transaction_hash=transaction_hash, **kwargs)
+        # Hashes only appear in last block added.
+        if transaction_hashes:
+            self._blocks[-1]["txns"] = transaction_hashes
 
     def get_virtual_machine_error(self, exception: Exception, **kwargs) -> VirtualMachineError:
-        if isinstance(exception, ValidationError):
-            match = self._CANNOT_AFFORD_GAS_PATTERN.match(str(exception))
-            if match:
-                txn_gas, bal = match.groups()
-                sender = getattr(kwargs["txn"], "sender")
-                new_message = (
-                    f"Sender '{sender}' cannot afford txn gas {txn_gas} with account balance {bal}."
-                )
-                return VirtualMachineError(new_message, base_err=exception, **kwargs)
+        if isinstance(exception, Revert):
+            raw_data = exception.args[0]
+            revert_data = raw_data[4:]
 
-            else:
-                return VirtualMachineError(base_err=exception, **kwargs)
+            try:
+                message = decode(("string",), revert_data, strict=False)[0]
+            except Exception:
+                # Likely a custom error.
+                message = to_hex(revert_data)
 
-        elif isinstance(exception, Web3ContractLogicError):
-            # If the ape-solidity plugin is installed, we are able to enrich the data.
-            message = exception.message
-            raw_data = exception.data if isinstance(exception.data, str) else "0x"
-            error = ContractLogicError(base_err=exception, revert_message=raw_data, **kwargs)
-            enriched_error = self.compiler_manager.enrich_error(error)
-            if is_0x_prefixed(enriched_error.message):
-                # Failed to enrich. Use nicer message from web3.py.
-                enriched_error.message = message or enriched_error.message
-
+            contract_logic_error = ContractLogicError(
+                base_err=exception,
+                revert_message=message,
+                **kwargs,
+            )
+            enriched_error = self.compiler_manager.enrich_error(contract_logic_error)
             return enriched_error
 
-        elif isinstance(exception, TransactionFailed):
-            err_message = str(exception).split("execution reverted: ")[-1] or None
+        return VirtualMachineError(**kwargs)
 
-            if err_message and err_message.startswith("b'") and err_message.endswith("'"):
-                # Convert stringified bytes str like `"b'\\x82\\xb4)\\x00'"` to `"0x82b42900"`.
-                # (Notice the `b'` is within the `"` on the first str).
-                err_message = to_hex(literal_eval(err_message))
+    def set_balance(self, address: "AddressType", amount: int):
+        self.env.set_balance(address, amount)
 
-            err_message = TransactionError.DEFAULT_MESSAGE if err_message == "0x" else err_message
-            contract_err = ContractLogicError(
-                base_err=exception, revert_message=err_message, **kwargs
-            )
-            return self.compiler_manager.enrich_error(contract_err)
+    def get_transaction_trace(  # type: ignore[empty-body]
+        self, txn_hash: Union["HexBytes", str]
+    ) -> "TraceAPI":
+        return BoaTrace(transaction_hash=txn_hash)  # type: ignore
 
-        else:
-            return VirtualMachineError(base_err=exception, **kwargs)
+    def get_test_account(self, index: int) -> "TestAccountAPI":
+        if index in self._accounts:
+            return self._accounts[index]
 
-    def _get_latest_block(self) -> BlockAPI:
-        # perf: By-pass as much as possible since this is a common action.
-        data = self._get_latest_block_rpc()
-        return self.network.ecosystem.decode_block(data)
+        # Generate account for the first time.
+        keys = self._generate_keys(index)
+        account = TestAccount(
+            index=index,
+            address_str=keys[0],
+            private_key=f"{keys[1]}",
+        )
+        self._accounts[index] = account
 
-    def _get_latest_block_rpc(self) -> dict:
-        return self.evm_backend.get_block_by_number("latest")
+        # Initialize balance.
+        self.env.set_balance(account.address, self.apetest_config.balance)
+
+        return account
+
+    def _generate_keys(self, index: int) -> tuple[str, str]:
+        # perf: lazy imports so module loads faster.
+        from eth_account.account import Account
+        from eth_account.hdaccount import HDPath
+
+        pkey = to_hex(HDPath(self.hdpath_format.format(index)).derive(self.mnemonic_seed))
+        account = Account.from_key(pkey)
+        return account.address, pkey
+
+    def unlock_account(self, address: "AddressType") -> bool:
+        # NOTE: All accounts are basically unlocked in boa.
+        return True
+
+    def _init_blockapi(self, header, block_number: int, timestamp: int) -> "BlockAPI":
+        # NOTE: If we don't do this, all the hashes are the same, and that
+        #   creates problems in Ape.
+        fake_hash = HexBytes(int(to_hex(header.hash), 16) + block_number)
+        return self.network.ecosystem.decode_block(
+            {
+                "gasLimit": header.gas_limit,
+                "gasUsed": header.gas_used,
+                "hash": fake_hash,
+                "number": block_number,
+                "parentHash": header.parent_hash,
+                "timestamp": timestamp,
+            }
+        )
+
+    def _execute_code(
+        self,
+        data: bytes,
+        gas: int,
+        sender: Optional[Union[str, bytes]] = None,
+        receiver: Optional[Union[str, bytes]] = None,
+        is_modifying: bool = False,
+        value: int = 0,
+    ):
+        return self.env.execute_code(
+            data=data,
+            gas=gas,
+            is_modifying=is_modifying,
+            sender=sender,
+            to_address=receiver,
+            value=value,
+        )
 
 
-class EthTesterTransactionTrace(TransactionTrace):
+class TitanoboaProvider(BaseTitanoboaProvider):
+    """
+    The Boa-based provider used for `local` networks.
+    """
+
     @cached_property
-    def return_value(self) -> Any:
-        # perf: skip trying anything else, because eth-tester doesn't
-        # yet implement any tracing RPCs.
-        init_kwargs = self._get_tx_calltree_kwargs()
-        receipt = self.chain_manager.get_receipt(self.transaction_hash)
-        init_kwargs["gas_cost"] = receipt.gas_used
+    def env(self) -> "Env":
+        self.boa.env.evm.patch.chain_id = self.settings.chain_id
+        if self.config.fast_mode:
+            self.boa.env.enable_fast_mode()
 
-        if not (abi := self.root_method_abi):
-            return (None,)
+        return self.boa.env
 
-        num_return = len(self.root_method_abi.outputs)
+    def get_nonce(self, address: "AddressType", block_id: Optional["BlockID"] = None) -> int:
+        return self._nonces[address]
 
-        # Figure out the 'returndata' using 'eth_call' RPC.
-        tx = receipt.transaction.model_copy(update={"nonce": None})
+    def get_block_by_number(self, number: int) -> "BlockAPI":
         try:
-            returndata = self.provider.send_call(tx, block_id=receipt.block_number)
-        except ContractLogicError:
-            # Unable to get the return value because even as a call, it fails.
-            return tuple([None for _ in range(num_return)])
+            timestamp = self._blocks[number]["ts"]
+        except IndexError:
+            raise BlockNotFoundError(number)
 
-        return self._ecosystem.decode_returndata(abi, returndata)
+        return self._init_blockapi(self._reusable_header, number, timestamp)
+
+    def get_block_by_hash(self, block_hash: bytes) -> "BlockAPI":
+        block_index = self._get_block_index_from_hash(block_hash)
+        try:
+            timestamp = self._blocks[block_index]["ts"]
+        except IndexError:
+            raise BlockNotFoundError(HexBytes(block_hash))
+
+        # Block index is the same as block number for local networks.
+        return self._init_blockapi(self._reusable_header, block_index, timestamp)
+
+
+class ForkTitanoboaProvider(BaseTitanoboaProvider):
+    """
+    The Boa-provider used for forked-networks.
+    """
+
+    _upstream_blocks: dict["BlockID", "BlockAPI"] = {}
+
+    @cached_property
+    def env(self) -> "Env":
+        return self.boa.env
+
+    @cached_property
+    def fork(self) -> "Open":
+        from boa import fork  # type: ignore
+
+        block_id = self.block_identifier or "safe"
+        return fork(self.fork_url, block_identifier=block_id, allow_dirty=True)
+
+    @property
+    def fork_config(self) -> "BoaForkConfig":
+        return (
+            self.settings.fork.get(self.network.ecosystem.name, {}).get(
+                self.forked_network.upstream_network.name
+            )
+            or BoaForkConfig()
+        )
+
+    @property
+    def forked_network(self) -> "ForkedNetworkAPI":
+        return self.network  # type: ignore
+
+    @property
+    def earliest_block(self) -> "BlockAPI":
+        return self._get_block_from_upstream("earliest")
+
+    @property
+    def _upstream_connection(self) -> "ProviderContextManager":
+        if provider := self.fork_config.upstream_provider:
+            return self.forked_network.upstream_network.use_provider(provider)
+        else:
+            return self.forked_network.upstream_network.use_default_provider()
+
+    @cached_property
+    def fork_url(self) -> str:
+        with self._upstream_connection as upstream_provider:
+            return upstream_provider.http_uri
+
+    @property
+    def block_identifier(self) -> ForkBlockIdentifier:
+        return self.fork_config.block_identifier
+
+    @cached_property
+    def forked_block_start(self) -> "BlockAPI":
+        with self._upstream_connection as upstream_provider:
+            return upstream_provider.get_block(self.block_identifier)
+
+    @cached_property
+    def _upstream_chain_id(self) -> int:
+        with self._upstream_connection as upstream_provider:
+            return upstream_provider.chain_id
+
+    @property
+    def chain_id(self) -> int:
+        # TODO: Support having a different chain ID than the upstream
+        #   (with the default being the upstream).
+        return self._upstream_chain_id
+
+    def connect(self):
+        self._connected = True
+        self.fork.__enter__()
+        block = self.forked_block_start
+        self.env.evm.patch.block_number = block.number
+        self.env.evm.patch.timestamp = block.timestamp
+        self._blocks = [{"ts": block.timestamp}]
+        self.env.evm.patch.chain_id = self._upstream_chain_id
+
+    def disconnect(self):
+        self.fork.__exit__()
+        super().disconnect()
+
+    def get_nonce(self, address: "AddressType", block_id: Optional["BlockID"] = None) -> int:
+        if address in self._nonces:
+            return self._nonces[address]
+
+        # Get the data from upstream.
+        with self._upstream_connection as upstream_provider:
+            nonce = upstream_provider.get_nonce(address)
+            self._nonces[address] = nonce
+
+        return nonce
+
+    def get_block_by_number(self, number: int) -> "BlockAPI":
+        start_number = self.forked_block_start.number or 0
+        if number == start_number:
+            return self.forked_block_start
+
+        elif number < start_number:
+            # Is before fork.
+            return self._get_block_from_upstream(number)
+
+        # Is since fork.
+        return self._get_block_since_fork_by_number(number)
+
+    def _get_block_since_fork_by_number(self, number: int) -> "BlockAPI":
+        start_number = self.forked_block_start.number or 0
+        index = number - start_number
+        try:
+            timestamp = self._blocks[index]["ts"]
+        except IndexError:
+            # NOTE: Ensure we raise error with the *given* number.
+            raise BlockNotFoundError(number)
+
+        return self._init_blockapi(self._reusable_header, number, timestamp)
+
+    def get_block_by_hash(self, block_hash: bytes) -> "BlockAPI":
+        index = self._get_block_index_from_hash(block_hash)
+
+        if index >= 0 or index < len(self._blocks):
+            block_number = (self.forked_block_start.number or 0) + index
+            return self._init_blockapi(
+                self._reusable_header, block_number, self._blocks[index]["ts"]
+            )
+
+        return self._get_block_from_upstream(block_hash)
+
+    def _get_block_from_upstream(self, block_id: "BlockID") -> "BlockAPI":
+        if block := self._upstream_blocks.get(block_id):
+            return block
+
+        with self._upstream_connection as upstream_provider:
+            upstream_block = upstream_provider.get_block(block_id)
+            # Cache for next time.
+            self._upstream_blocks[block_id] = upstream_block
+            return upstream_block
+
+    def make_request(self, rpc: str, parameters: Optional[Iterable] = None) -> Any:
+        with self._upstream_connection as provider:
+            return provider.make_request(rpc, parameters=parameters)
+
+    def get_receipt(self, txn_hash: str, **kwargs) -> "ReceiptAPI":
+        if data := self._canonical_transactions.get(txn_hash):
+            if isinstance(data, dict):
+                # Transaction made with this plugin (boa).
+                return BoaReceipt(**data)
+
+            # Is a cached transaction from upstream.
+            return data
+
+        # Historical transaction.
+        with self._upstream_connection as upstream_provider:
+            receipt = upstream_provider.get_receipt(txn_hash)
+            self._canonical_transactions[txn_hash] = receipt
+            return receipt

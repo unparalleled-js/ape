@@ -278,7 +278,7 @@ class BaseEthereumConfig(PluginConfig):
     @cached_property
     def local(self) -> NetworkConfig:
         return create_local_network_config(
-            default_provider="test",
+            default_provider="boa",
             default_transaction_type=self.DEFAULT_TRANSACTION_TYPE,
             gas_limit=self.DEFAULT_LOCAL_GAS_LIMIT,
         )

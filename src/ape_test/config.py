@@ -1,9 +1,10 @@
-from typing import TYPE_CHECKING, NewType, Optional, Union
+from typing import TYPE_CHECKING, Literal, NewType, Optional, Union
 
 from pydantic import NonNegativeInt, field_validator
 from pydantic_settings import SettingsConfigDict
 
 from ape.api.config import PluginConfig
+from ape.types import BlockID
 from ape.utils.basemodel import ManagerAccessMixin
 from ape.utils.testing import (
     DEFAULT_NUMBER_OF_TEST_ACCOUNTS,
@@ -17,10 +18,52 @@ if TYPE_CHECKING:
     from ape.pytest.utils import Scope
 
 
-class EthTesterProviderConfig(PluginConfig):
+ForkBlockIdentifier = Union[BlockID, Literal["safe"]]
+
+
+class BoaForkConfig(PluginConfig):
+    """
+    Configure forked networks.
+    """
+
+    upstream_provider: Optional[str] = None
+    """
+    The value to use, such as plugin name or URL, for the
+    upstream network. Defaults to the default provider
+    for that network.
+    """
+
+    block_identifier: ForkBlockIdentifier = "safe"
+    """
+    The block ID, such as block number of hash, to fork from (recommended).
+    Defaults to the literal "safe" (same as boa).
+    """
+
+
+class BoaConfig(PluginConfig):
+    """
+    Configure the titanoboa provider.
+    """
+
     chain_id: int = DEFAULT_TEST_CHAIN_ID
+    """
+    Change the chain ID for your development "chain".
+    """
+
+    fork: dict[str, dict[str, BoaForkConfig]] = {}
+    """
+    Maps ecosystem name -> network name -> fork configuration (e.g. block number).
+    """
+
+    fast_mode: bool = False
+    """
+    To enable fast mode, set to ``True``.
+    """
+
     auto_mine: bool = True
-    model_config = SettingsConfigDict(extra="allow", env_prefix="APE_TEST_")
+    """
+    Set to ``False`` to disable auto-mining.
+    """
 
 
 class GasExclusion(PluginConfig):
@@ -203,7 +246,7 @@ class ApeTestConfig(PluginConfig):
     The number of test accounts to generate in the provider.
     """
 
-    provider: EthTesterProviderConfig = EthTesterProviderConfig()
+    titanoboa: BoaConfig = BoaConfig()
     """
     Settings for the provider.
     """

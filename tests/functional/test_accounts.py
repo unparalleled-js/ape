@@ -132,7 +132,7 @@ def test_sign_raw_hash(runner, keyfile_account):
         assert signature is None
 
 
-def test_transfer(sender, receiver, eth_tester_provider, convert):
+def test_transfer(sender, receiver, boa_provider, convert):
     initial_receiver_balance = receiver.balance
     initial_sender_balance = sender.balance
     value_str = "24 gwei"
@@ -388,10 +388,10 @@ def test_send_transaction_with_bad_nonce(sender, receiver):
         sender.transfer(receiver, "1 gwei", type=0, nonce=0)
 
 
-def test_send_transaction_without_enough_funds(sender, receiver, eth_tester_provider, convert):
+def test_send_transaction_without_enough_funds(sender, receiver, boa_provider, convert):
     expected = (
         rf"Transfer value meets or exceeds account balance for account '{sender.address}' .*"
-        rf"on chain '{eth_tester_provider.chain_id}' using provider '{eth_tester_provider.name}'\."
+        rf"on chain '{boa_provider.chain_id}' using provider '{boa_provider.name}'\."
         rf"\nAre you using the correct account / chain \/ provider combination\?"
         rf"\n\(transfer_value=\d+, balance=\d+\)\."
     )
@@ -400,7 +400,7 @@ def test_send_transaction_without_enough_funds(sender, receiver, eth_tester_prov
 
 
 def test_send_transaction_without_enough_funds_impersonated_account(
-    receiver, accounts, eth_tester_provider, convert
+    receiver, accounts, boa_provider, convert
 ):
     address = "0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97"  # Not a test account!
     impersonated_account = ImpersonatedAccount(raw_address=address)
@@ -680,7 +680,7 @@ def test_is_not_contract(owner, keyfile_account):
     assert not keyfile_account.is_contract
 
 
-def test_using_different_hd_path(accounts, project, eth_tester_provider):
+def test_using_different_hd_path(accounts, project, boa_provider):
     test_config = {
         "test": {
             "hd_path": "m/44'/60'/0/0",
@@ -688,12 +688,12 @@ def test_using_different_hd_path(accounts, project, eth_tester_provider):
     }
 
     old_address = accounts[0].address
-    original_settings = eth_tester_provider.settings.model_dump(by_alias=True)
+    original_settings = boa_provider.settings.model_dump(by_alias=True)
     with project.temp_config(**test_config):
-        eth_tester_provider.update_settings(test_config["test"])
+        boa_provider.update_settings(test_config["test"])
         new_address = accounts[0].address
 
-    eth_tester_provider.update_settings(original_settings)
+    boa_provider.update_settings(original_settings)
     assert old_address != new_address
 
 
@@ -792,10 +792,10 @@ def test_prepare_transaction_using_auto_gas(sender, ethereum, tx_type):
 
 
 @pytest.mark.parametrize("tx_type", (TransactionType.STATIC, TransactionType.DYNAMIC))
-def test_prepare_transaction_and_call_using_max_gas(tx_type, ethereum, sender, eth_tester_provider):
+def test_prepare_transaction_and_call_using_max_gas(tx_type, ethereum, sender, boa_provider):
     tx = ethereum.create_transaction(type=tx_type.value)
     tx = sender.prepare_transaction(tx)
-    assert tx.gas_limit == eth_tester_provider.max_gas, "Test setup failed - gas limit unexpected."
+    assert tx.gas_limit == boa_provider.max_gas, "Test setup failed - gas limit unexpected."
 
     actual = sender.call(tx)
     assert not actual.failed

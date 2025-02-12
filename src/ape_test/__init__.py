@@ -19,9 +19,9 @@ def account_types():
 
 @plugins.register(plugins.ProviderPlugin)
 def providers():
-    from ape_test.provider import LocalProvider
+    from ape_test.provider import TitanoboaProvider
 
-    yield "ethereum", "local", LocalProvider
+    yield "ethereum", "local", TitanoboaProvider
 
 
 def __getattr__(name: str):
@@ -46,7 +46,7 @@ __all__ = [
     "TestAccountContainer",
     "TestAccount",
     "EthTesterProviderConfig",
-    "LocalProvider",
+    "TitanoboaProvider",
     "GasConfig",
     "GasExclusion",
     "CoverageReportsConfig",

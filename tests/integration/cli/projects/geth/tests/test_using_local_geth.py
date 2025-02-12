@@ -81,7 +81,7 @@ def test_call_method_excluded_from_config(accounts, contract):
     assert not receipt.failed
 
 
-@pytest.mark.use_network("ethereum:local:test")
+@pytest.mark.use_network("ethereum:local:boa")
 def test_switch_back_to_eth_tester(chain):
     """
     Test to verify the `use_network` marker works.

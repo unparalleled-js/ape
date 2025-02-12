@@ -188,14 +188,14 @@ def test_select_account_with_account_list(runner, keyfile_account, second_keyfil
 def test_network_option_default(runner, network_cmd):
     result = runner.invoke(network_cmd, catch_exceptions=False)
     assert result.exit_code == 0, result.output
-    assert OUTPUT_FORMAT.format("ethereum", "local", "test") in result.output
+    assert OUTPUT_FORMAT.format("ethereum", "local", "boa") in result.output
 
 
 def test_network_option_specified(runner, network_cmd):
-    network_part = ("--network", "ethereum:local:test")
+    network_part = ("--network", "ethereum:local:boa")
     result = runner.invoke(network_cmd, network_part)
     assert result.exit_code == 0, result.output
-    assert OUTPUT_FORMAT.format("ethereum", "local", "test") in result.output
+    assert OUTPUT_FORMAT.format("ethereum", "local", "boa") in result.output
 
 
 def test_network_option_unknown(runner, network_cmd):
@@ -716,7 +716,7 @@ def test_connected_provider_command_use_ecosystem_network_and_provider(runner):
 
     result = runner.invoke(cmd)
     assert result.exit_code == 0
-    assert "ethereum:local:test" in result.output, result.output
+    assert "ethereum:local:boa" in result.output, result.output
 
 
 def test_connected_provider_command_use_ecosystem_network_and_provider_with_network_specified(
@@ -726,9 +726,9 @@ def test_connected_provider_command_use_ecosystem_network_and_provider_with_netw
     def cmd(ecosystem, network, provider):
         click.echo(f"{ecosystem.name}:{network.name}:{provider.name}")
 
-    result = runner.invoke(cmd, ["--network", "ethereum:local:test"])
+    result = runner.invoke(cmd, ["--network", "ethereum:local:boa"])
     assert result.exit_code == 0
-    assert "ethereum:local:test" in result.output, result.output
+    assert "ethereum:local:boa" in result.output, result.output
 
 
 def test_connected_provider_command_use_custom_options(runner):
@@ -758,7 +758,7 @@ def test_connected_provider_command_use_custom_options(runner):
         click.echo(provider.name)
         click.echo(other_arg)
 
-    spec = ("--network", "ethereum:local:test")
+    spec = ("--network", "ethereum:local:boa")
 
     def run(cmd, extra_args=None):
         arguments = [*spec, *(extra_args or [])]
@@ -775,7 +775,7 @@ def test_connected_provider_command_use_custom_options(runner):
 
     argument = "_extra_"
     result = run(with_arg, extra_args=[argument])
-    assert "test" in result.output
+    assert "boa" in result.output
     assert argument in result.output
 
 
@@ -837,25 +837,25 @@ def test_parse_network_when_interactive_and_no_param(mocker):
     ctx.parent = None
     network_ctx = parse_network(ctx)
     assert network_ctx is not None
-    assert network_ctx.provider.name == "test"
+    assert network_ctx.provider.name == "boa"
     assert network_ctx._disconnect_on_exit is False  # Because of interactive: True
 
 
 def test_parse_network_when_interactive_and_str_param(mocker):
     ctx = mocker.MagicMock()
-    ctx.params = {"interactive": True, "network": "ethereum:local:test"}
+    ctx.params = {"interactive": True, "network": "ethereum:local:boa"}
     network_ctx = parse_network(ctx)
     assert network_ctx is not None
-    assert network_ctx.provider.name == "test"
+    assert network_ctx.provider.name == "boa"
     assert network_ctx._disconnect_on_exit is False  # Because of interactive: True
 
 
-def test_parse_network_when_interactive_and_class_param(mocker, eth_tester_provider):
+def test_parse_network_when_interactive_and_class_param(mocker, boa_provider):
     ctx = mocker.MagicMock()
-    ctx.params = {"interactive": True, "network": eth_tester_provider}
+    ctx.params = {"interactive": True, "network": boa_provider}
     network_ctx = parse_network(ctx)
     assert network_ctx is not None
-    assert network_ctx.provider.name == "test"
+    assert network_ctx.provider.name == "boa"
     assert network_ctx._disconnect_on_exit is False  # Because of interactive: True
 
 
@@ -872,8 +872,8 @@ class TestNetworkChoice:
         return NetworkChoice()
 
     def test_test(self, network_choice):
-        actual = network_choice.convert("ethereum:local:test", None, None)
-        assert actual.name == "test"
+        actual = network_choice.convert("ethereum:local:boa", None, None)
+        assert actual.name == "boa"
         assert actual.network.name == "local"
 
     @pytest.mark.parametrize("prefix", ("", "ethereum:custom:"))
@@ -919,13 +919,13 @@ class TestNetworkChoice:
             network_choice.convert("ethereum:lokal:test", None, None)
 
     def test_bad_provider(self, network_choice):
-        # NOTE: "test" is spelled wrong.
+        # NOTE: "boa" is spelled wrong.
         expected = (
-            r"No provider named 'teest' in network 'local' in "
-            r"ecosystem 'ethereum'\. Did you mean 'test'\?"
+            r"No provider named 'bao' in network 'local' in "
+            r"ecosystem 'ethereum'\. Did you mean 'boa'\?"
         )
         with pytest.raises(BadParameter, match=expected):
-            network_choice.convert("ethereum:local:teest", None, None)
+            network_choice.convert("ethereum:local:bao", None, None)
 
 
 def test_config_override_option(runner):
